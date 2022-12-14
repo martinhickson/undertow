@@ -40,7 +40,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 
-import io.undertow.UndertowOptions;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
@@ -66,6 +65,7 @@ import org.xnio.ssl.JsseXnioSsl;
 import org.xnio.ssl.SslConnection;
 import org.xnio.ssl.XnioSsl;
 
+import io.undertow.UndertowOptions;
 import io.undertow.connector.ByteBufferPool;
 import io.undertow.server.DefaultByteBufferPool;
 
@@ -156,7 +156,6 @@ public class UndertowXnioSsl extends XnioSsl {
         return ((UndertowSslConnection) connection).getSslConduit();
     }
 
-    @SuppressWarnings("deprecation")
     public IoFuture<ConnectedSslStreamChannel> connectSsl(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<>(IoUtils.directExecutor());
         final IoFuture<SslConnection> futureSslConnection = openSslConnection(worker, bindAddress, destination, new ChannelListener<SslConnection>() {
@@ -288,7 +287,7 @@ public class UndertowXnioSsl extends XnioSsl {
             sslParameters.setUseCipherSuitesOrder(true);
             engine.setSSLParameters(sslParameters);
         }
-        final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM, null);
+        final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM);
         if (endpointIdentificationAlgorithm != null) {
             SSLParameters sslParameters = engine.getSSLParameters();
             sslParameters.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
@@ -433,7 +432,7 @@ public class UndertowXnioSsl extends XnioSsl {
                 SSLParameters params = sslEngine.getSSLParameters();
                 params.setServerNames(Collections.singletonList(new SNIHostName(destination.getHostString())));
 
-                final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM, null);
+                final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM);
                 if (endpointIdentificationAlgorithm != null) {
                     params.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
                 }
