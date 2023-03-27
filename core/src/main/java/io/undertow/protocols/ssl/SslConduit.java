@@ -973,6 +973,10 @@ public class SslConduit implements StreamSourceConduit, StreamSinkConduit {
     private SSLEngineResult wrapAndFlip(ByteBuffer[] userBuffers, int off, int len) throws IOException {
         SSLEngineResult result = null;
         while (result == null || (result.getHandshakeStatus() == SSLEngineResult.HandshakeStatus.NEED_WRAP && result.getStatus() != SSLEngineResult.Status.BUFFER_OVERFLOW)) {
+            // The following condition avoids an infinite loop that results in a security issue:
+            if (engine.isInboundDone()) {
+                break;
+            }
             if (userBuffers == null) {
                 result = engine.wrap(EMPTY_BUFFER, wrappedData.getBuffer());
             } else {
