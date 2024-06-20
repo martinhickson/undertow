@@ -47,8 +47,8 @@ import java.util.Set;
 public class LearningPushHandler implements HttpHandler {
 
     private static final String SESSION_ATTRIBUTE = "io.undertow.PUSHED_RESOURCES";
-    private static final int DEFAULT_MAX_CACHE_ENTRIES = 1000;
-    private static final int DEFAULT_MAX_CACHE_AGE = -1;
+    private static final int DEFAULT_MAX_CACHE_ENTRIES = Integer.getInteger("io.undertow.handlers.learning-push.default-max-entries", 200);
+    private static final int DEFAULT_MAX_CACHE_AGE = Integer.getInteger("io.undertow.handlers.learning-push.default-max-age", LRUCache.MAX_AGE_NO_EXPIRY);
 
     private final LRUCache<String, Map<String, PushedRequest>> cache;
 
