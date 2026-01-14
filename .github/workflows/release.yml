@@ -13,6 +13,11 @@ on:
         required: true
         default: 'release/2.2.19.bravura-6'
         type: string
+      source_branch:
+        description: 'Source branch to base the release on'
+        required: true
+        default: '2.2.19.x'
+        type: string
       upload_to_github_packages:
         description: 'Upload Maven artifacts to GitHub Packages'
         required: false
@@ -44,21 +49,37 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Checkout source branch
+        run: |
+          SOURCE_BRANCH="${{ github.event.inputs.source_branch }}"
+          echo "Checking out source branch: $SOURCE_BRANCH"
+          # Check if source branch exists remotely
+          if ! git ls-remote --heads origin "$SOURCE_BRANCH" | grep -q "refs/heads/$SOURCE_BRANCH$"; then
+            echo "Error: Source branch $SOURCE_BRANCH does not exist remotely"
+            exit 1
+          fi
+          # Fetch all branches
+          git fetch origin
+          # Checkout the source branch
+          git checkout $SOURCE_BRANCH
+          git pull origin $SOURCE_BRANCH
+
       - name: Create or checkout release branch
         run: |
+          SOURCE_BRANCH="${{ github.event.inputs.source_branch }}"
           BRANCH_NAME="${{ github.event.inputs.release_branch }}"
-          # Check if branch exists locally or remotely (with exact match)
+          # Check if release branch exists locally or remotely (with exact match)
           if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
-            echo "Branch $BRANCH_NAME exists locally, checking out..."
+            echo "Release branch $BRANCH_NAME exists locally, checking out..."
             git checkout $BRANCH_NAME
             git pull origin $BRANCH_NAME || true
           elif git ls-remote --heads origin "$BRANCH_NAME" | grep -q "refs/heads/$BRANCH_NAME$"; then
-            echo "Branch $BRANCH_NAME exists remotely, checking out..."
+            echo "Release branch $BRANCH_NAME exists remotely, checking out..."
             git fetch origin $BRANCH_NAME:$BRANCH_NAME
             git checkout $BRANCH_NAME
             git pull origin $BRANCH_NAME || true
           else
-            echo "Creating new branch $BRANCH_NAME..."
+            echo "Creating new release branch $BRANCH_NAME from source branch $SOURCE_BRANCH..."
             git checkout -b $BRANCH_NAME
           fi
 
