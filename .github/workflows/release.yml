@@ -103,6 +103,34 @@ jobs:
       - name: Build project
         run: mvn clean install -DskipTests
 
+      - name: Collect release artifacts
+        id: collect_artifacts
+        run: |
+          # Create a temporary file to store artifact paths
+          ARTIFACTS_FILE=$(mktemp)
+          # Find all JAR files (excluding test JARs and original JARs)
+          find . -type f -name "*.jar" -path "*/target/*" ! -path "*/original-*" ! -name "*-tests.jar" >> "$ARTIFACTS_FILE"
+          # Find all POM files
+          find . -type f -name "pom.xml" -path "*/target/pom.xml" >> "$ARTIFACTS_FILE"
+          # Output files as newline-separated list (multiline output)
+          if [ -s "$ARTIFACTS_FILE" ]; then
+            {
+              echo "files<<EOF"
+              cat "$ARTIFACTS_FILE"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+            echo "Collected artifacts:"
+            cat "$ARTIFACTS_FILE" | while read file; do
+              if [ -n "$file" ] && [ -f "$file" ]; then
+                echo "  - $file"
+              fi
+            done
+          else
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "Warning: No artifacts found"
+          fi
+          rm -f "$ARTIFACTS_FILE"
+
       - name: Commit version change
         run: |
           git add -A
@@ -118,15 +146,32 @@ jobs:
           git push -u origin $BRANCH_NAME
 
       - name: Create and push tag
+        id: check_tag
         run: |
           TAG_NAME="${{ github.event.inputs.version }}"
           # Check both local and remote tags
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1 || git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME$"; then
             echo "Tag $TAG_NAME already exists, skipping..."
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
             git tag -a "$TAG_NAME" -m "Release ${{ github.event.inputs.version }}"
             git push origin "$TAG_NAME"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Undertow Release v${{ github.event.inputs.version }}
+          body: |
+            This is a release of Undertow version ${{ github.event.inputs.version }}.
+          files: ${{ steps.collect_artifacts.outputs.files }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload to GitHub Packages
         if: github.event.inputs.upload_to_github_packages == 'true'
