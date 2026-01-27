@@ -89,6 +89,11 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
 
     private ParseTimeoutUpdater parseTimeoutUpdater;
 
+    /**
+     * If this is true then deprecated configuration options will log warnings. Defaults to false.
+     */
+    private static final boolean STRICT_CONFIGURATION_CHECK = false;
+
     HttpReadListener(final HttpServerConnection connection, final HttpRequestParser parser, ConnectorStatisticsImpl connectorStatistics) {
         this.connection = connection;
         this.parser = parser;
@@ -107,8 +112,10 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
         }
         state = new ParseState(connection.getUndertowOptions().get(UndertowOptions.HTTP_HEADERS_CACHE_SIZE, UndertowOptions.DEFAULT_HTTP_HEADERS_CACHE_SIZE));
 
-        if (connection.getUndertowOptions().contains(UndertowOptions.REQUIRE_HOST_HTTP11)) {
-            UndertowLogger.ROOT_LOGGER.configurationNotSupported("REQUIRE_HOST_HTTP11");
+        if (STRICT_CONFIGURATION_CHECK) {
+            if (connection.getUndertowOptions().contains(UndertowOptions.REQUIRE_HOST_HTTP11)) {
+                UndertowLogger.ROOT_LOGGER.configurationNotSupported("REQUIRE_HOST_HTTP11");
+            }
         }
     }
 

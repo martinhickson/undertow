@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 2.2.19.bravura-6)'
+        description: 'Release version (e.g., 2.2.19.bravura-7)'
         required: true
-        default: '2.2.19.bravura-6'
+        default: '2.2.19.bravura-7'
         type: string
       release_branch:
         description: 'Release branch name'
         required: true
-        default: 'release/2.2.19.bravura-6'
+        default: 'release/2.2.19.bravura-7'
         type: string
       source_branch:
         description: 'Source branch to base the release on'
@@ -106,16 +106,23 @@ jobs:
       - name: Collect release artifacts
         id: collect_artifacts
         run: |
-          # Create a temporary file to store artifact paths
+          # Create temporary files
           ARTIFACTS_FILE=$(mktemp)
-          # Get workspace root (absolute path)
-          WORKSPACE_ROOT="$GITHUB_WORKSPACE"
+          SEEN_NAMES=$(mktemp)
           # Find all JAR files (excluding test JARs and original JARs) and verify they exist
           find . -type f -name "*.jar" -path "*/target/*" ! -path "*/original-*" ! -name "*-tests.jar" | while read -r file; do
             # Normalize path (remove ./ prefix) and verify file exists
             normalized=$(echo "$file" | sed 's|^\./||')
             if [ -f "$normalized" ]; then
-              echo "$normalized" >> "$ARTIFACTS_FILE"
+              # Get basename to check for duplicates (GitHub Releases can't have duplicate filenames)
+              basename=$(basename "$normalized")
+              # Only add if we haven't seen this filename before (keep first occurrence)
+              if ! grep -Fxq "$basename" "$SEEN_NAMES" 2>/dev/null; then
+                echo "$normalized" >> "$ARTIFACTS_FILE"
+                echo "$basename" >> "$SEEN_NAMES"
+              else
+                echo "Skipping duplicate filename: $normalized (already have $basename)"
+              fi
             fi
           done
           # Find all POM files and verify they exist
@@ -123,11 +130,19 @@ jobs:
             # Normalize path (remove ./ prefix) and verify file exists
             normalized=$(echo "$file" | sed 's|^\./||')
             if [ -f "$normalized" ]; then
-              echo "$normalized" >> "$ARTIFACTS_FILE"
+              # Get basename to check for duplicates
+              basename=$(basename "$normalized")
+              # Only add if we haven't seen this filename before
+              if ! grep -Fxq "$basename" "$SEEN_NAMES" 2>/dev/null; then
+                echo "$normalized" >> "$ARTIFACTS_FILE"
+                echo "$basename" >> "$SEEN_NAMES"
+              else
+                echo "Skipping duplicate filename: $normalized (already have $basename)"
+              fi
             fi
           done
-          # Sort and remove duplicates
-          sort -u "$ARTIFACTS_FILE" -o "$ARTIFACTS_FILE"
+          # Sort the file
+          sort "$ARTIFACTS_FILE" -o "$ARTIFACTS_FILE"
           # Output files as newline-separated list (multiline output)
           if [ -s "$ARTIFACTS_FILE" ]; then
             {
@@ -145,7 +160,7 @@ jobs:
             echo "files=" >> $GITHUB_OUTPUT
             echo "Warning: No artifacts found"
           fi
-          rm -f "$ARTIFACTS_FILE"
+          rm -f "$ARTIFACTS_FILE" "$SEEN_NAMES"
 
       - name: Commit version change
         run: |
