@@ -42,6 +42,7 @@ import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.junit.Assert;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,9 +55,12 @@ import org.xnio.OptionMap;
 public class SimpleBlockingServerTestCase {
 
     private static volatile String message;
+    private static OptionMap previousOptions;
 
     @BeforeClass
     public static void setup() {
+        previousOptions = DefaultServer.getUndertowOptions();
+        DefaultServer.setUndertowOptions(OptionMap.builder().addAll(previousOptions).set(UndertowOptions.MAX_ENTITY_SIZE, -1L).getMap());
         final BlockingHandler blockingHandler = new BlockingHandler();
         DefaultServer.setRootHandler(blockingHandler);
 
@@ -115,14 +119,11 @@ public class SimpleBlockingServerTestCase {
         });
     }
 
-    @DefaultServer.BeforeServerStarts
-    public static void setupServer() {
-        DefaultServer.setServerOptions(OptionMap.create(UndertowOptions.MAX_ENTITY_SIZE, -1L));
-    }
-
-    @DefaultServer.AfterServerStops
+    @AfterClass
     public static void cleanup() {
-        DefaultServer.setServerOptions(OptionMap.EMPTY);
+        if (previousOptions != null) {
+            DefaultServer.setUndertowOptions(previousOptions);
+        }
     }
 
     @Test

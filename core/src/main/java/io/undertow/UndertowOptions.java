@@ -25,8 +25,9 @@ import org.xnio.Option;
  */
 public class UndertowOptions {
     /**
-     *  The default read timeout to be used by read operations that absolutely require a timeout. Used only when both
-     *   READ_TIMEOUT and IDLE_TIMEOUT are not used.
+     * The default read timeout in milliseconds for blocking reads. Used only when neither
+     * {@code READ_TIMEOUT} nor {@link #IDLE_TIMEOUT} is set. A configured value of {@code 0} or less
+     * disables that timeout.
      */
     public static final int DEFAULT_READ_TIMEOUT = 600000;
     /**

@@ -22,6 +22,7 @@ import io.undertow.UndertowMessages;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.connector.ByteBufferPool;
 import io.undertow.connector.PooledByteBuffer;
+import org.xnio.OptionMap;
 import org.xnio.channels.Channels;
 import org.xnio.channels.EmptyStreamSourceChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -67,14 +68,10 @@ public class UndertowInputStream extends InputStream {
         }
         this.bufferPool = exchange.getConnection().getByteBufferPool();
         Integer readTimeout = null;
+        Integer idleTimeout = null;
         try {
             readTimeout = this.channel.getOption(READ_TIMEOUT);
-            final Integer idleTimeout = this.channel.getOption(IDLE_TIMEOUT);
-            if (readTimeout == null || readTimeout <= 0)
-                readTimeout = idleTimeout;
-            else if (idleTimeout != null && idleTimeout > 0 && idleTimeout < readTimeout) {
-                readTimeout = idleTimeout;
-            }
+            idleTimeout = this.channel.getOption(IDLE_TIMEOUT);
         } catch (IOException e) {
             // we just log the exception at this point, because a getOption that throws IOException indicates that
             // the socket is closed or the channel is closed... we will defer any error treatment to the read attempt,
@@ -83,7 +80,40 @@ public class UndertowInputStream extends InputStream {
             // treatment)
             REQUEST_IO_LOGGER.ioException(e);
         }
-        this.readTimeout = readTimeout == null || readTimeout <= 0? DEFAULT_READ_TIMEOUT : readTimeout;
+        if (idleTimeout == null) {
+            final OptionMap undertowOptions = exchange.getConnection().getUndertowOptions();
+            if (undertowOptions != null) {
+                idleTimeout = undertowOptions.get(IDLE_TIMEOUT);
+            }
+        }
+        this.readTimeout = blockingReadTimeout(readTimeout, idleTimeout);
+    }
+
+    /**
+     * @param readTimeout socket read timeout in milliseconds, or {@code null} when unset
+     * @param idleTimeout idle timeout in milliseconds, or {@code null} when unset
+     * @return milliseconds to wait for a blocking read, or {@code 0} when the read should wait without a timeout
+     */
+    static int blockingReadTimeout(final Integer readTimeout, final Integer idleTimeout) {
+        if (readTimeout != null && readTimeout <= 0) {
+            if (idleTimeout != null && idleTimeout > 0) {
+                return idleTimeout;
+            }
+            return 0;
+        }
+        Integer timeout = readTimeout;
+        if (timeout == null) {
+            timeout = idleTimeout;
+        } else if (idleTimeout != null && idleTimeout > 0 && idleTimeout < timeout) {
+            timeout = idleTimeout;
+        }
+        if (timeout == null) {
+            return DEFAULT_READ_TIMEOUT;
+        }
+        if (timeout <= 0) {
+            return 0;
+        }
+        return timeout;
     }
 
     @Override
@@ -130,7 +160,12 @@ public class UndertowInputStream extends InputStream {
         if (pooled == null && !anyAreSet(state, FLAG_FINISHED)) {
             pooled = bufferPool.allocate();
 
-            int res = Channels.readBlocking(channel, pooled.getBuffer(), readTimeout, TimeUnit.MILLISECONDS);
+            final int res;
+            if (readTimeout <= 0) {
+                res = Channels.readBlocking(channel, pooled.getBuffer());
+            } else {
+                res = Channels.readBlocking(channel, pooled.getBuffer(), readTimeout, TimeUnit.MILLISECONDS);
+            }
             pooled.getBuffer().flip();
             if (res == -1) {
                 state |= FLAG_FINISHED;

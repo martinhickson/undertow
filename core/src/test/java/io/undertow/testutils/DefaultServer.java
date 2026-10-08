@@ -940,6 +940,7 @@ public class DefaultServer extends BlockJUnit4ClassRunner {
             openListener.setUndertowOptions(builder.getMap());
             openListener.closeConnections();
             if (proxyOpenListener != null) {
+                proxyOpenListener.setUndertowOptions(OptionMap.builder().addAll(options).set(UndertowOptions.BUFFER_PIPELINED_DATA, true).getMap());
                 proxyOpenListener.closeConnections();
             }
             if (loadBalancingProxyClient != null) {
