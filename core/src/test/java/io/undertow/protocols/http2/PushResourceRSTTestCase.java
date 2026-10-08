@@ -200,7 +200,11 @@ public class PushResourceRSTTestCase {
         OptionMap tlsOptions = OptionMap.builder()
                 .set(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM,
                         HttpClientProvider.DISABLE_HTTPS_ENDPOINT_IDENTIFICATION ? "" : "HTTPS")
-                .set(Options.SSL_STARTTLS, true).getMap();
+                .set(Options.SSL_STARTTLS, true)
+                // This client resets every pushed stream. The shared HTTP/2 channel counts those
+                // sent resets and would close at the default window of 200. The server keeps its own limit.
+                .set(UndertowOptions.MAX_RST_FRAMES_PER_WINDOW, Integer.MAX_VALUE)
+                .getMap();
         ChannelListener<StreamConnection> openListener = connection -> ALPNClientSelector.runAlpn((SslConnection) connection,
                 connection1 -> {
                     UndertowLogger.ROOT_LOGGER.alpnConnectionFailed(connection1);
