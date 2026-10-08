@@ -17,6 +17,45 @@ Undertow Dev Group: https://groups.google.com/g/undertow-dev/
 
 Zulip Chat: https://wildfly.zulipchat.com stream [#undertow](https://wildfly.zulipchat.com/#narrow/stream/174183-undertow)
 
+Request body size and blocking read timeout
+-------------------------------------------
+
+When `MAX_ENTITY_SIZE` is not set, a request body is limited to 2MB (2097152 bytes). Multipart parsing uses `MULTIPART_MAX_ENTITY_SIZE`, which also defaults to 2MB when the request does not already have a positive entity-size limit. A blocking read of the request body waits at most 10 minutes (600000 milliseconds) when neither `READ_TIMEOUT` nor `IDLE_TIMEOUT` is set. A configured value of 0 or less removes that limit. If one of those timeouts is positive, the blocking read uses the smaller positive value, so both have to be 0 or less for a read with no timeout.
+
+Embedded server:
+
+```java
+Undertow.builder()
+        .setServerOption(UndertowOptions.MAX_ENTITY_SIZE, -1L)
+        .setServerOption(UndertowOptions.MULTIPART_MAX_ENTITY_SIZE, -1L)
+        .setServerOption(UndertowOptions.IDLE_TIMEOUT, 0)
+        .setSocketOption(Options.READ_TIMEOUT, 0)
+        .build();
+```
+
+`MAX_ENTITY_SIZE` is the maximum request body size. `MULTIPART_MAX_ENTITY_SIZE` is the multipart body size used when the request has no positive entity-size limit. `Options.READ_TIMEOUT` is the socket read timeout, in milliseconds. `IDLE_TIMEOUT` is the connection idle timeout, in milliseconds.
+
+WildFly 26:
+
+WildFly 26 sets these on each listener in the `undertow` subsystem (`urn:jboss:domain:undertow:12.0`). `max-post-size` is `MAX_ENTITY_SIZE`. The listener default is 10MB, which replaces Undertow's 2MB default. The management model accepts 0 as the smallest value, and Undertow treats 0 as no body-size limit. `read-timeout` is the socket `READ_TIMEOUT`, in milliseconds. It is unset by default, so blocking reads use the 10 minute timeout until it is set to 0. `IDLE_TIMEOUT` is not a WildFly 26 listener attribute. With it left unset, `read-timeout="0"` disables the blocking read timeout.
+
+Add both attributes to every `http-listener`, `https-listener`, and `ajp-listener` that should accept an unlimited body, then reload:
+
+```xml
+<http-listener name="default" socket-binding="http" redirect-socket="https" enable-http2="true" max-post-size="0" read-timeout="0"/>
+<https-listener name="https" socket-binding="https" ssl-context="applicationSSC" enable-http2="true" max-post-size="0" read-timeout="0"/>
+```
+
+```
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-post-size,value=0)
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=read-timeout,value=0)
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=max-post-size,value=0)
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=read-timeout,value=0)
+reload
+```
+
+WildFly 26 has no management attribute for `MULTIPART_MAX_ENTITY_SIZE`. With `max-post-size` set to 0, multipart parsing still applies the 2MB multipart default unless that Undertow option is also 0 or negative. `no-request-timeout` closes a connection that has been idle with no request in progress. The blocking read timeout is `read-timeout`.
+
 Contributing to Undertow - PR Review Process
 --------------------------------------------
 
