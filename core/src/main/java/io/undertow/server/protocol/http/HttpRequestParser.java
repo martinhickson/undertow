@@ -422,9 +422,8 @@ public abstract class HttpRequestParser {
                     // the path. This is to avoid path traversal issues - "/..;" should not be treated as "/..".
                     state.canonicalPath.append(";");
                 }
-                state.stringBuilder.append(";");
-                // set position to end of path (possibly start of parameter name)
-                state.pos = state.stringBuilder.length();
+                // handlePathParameters appends the ';' to the raw request URI.
+                // Appending it here as well inserts a second semicolon.
                 // handle the path parameters
                 handlePathParameters(buffer, state, exchange);
                 // if state is PATH, it means that handlePathParameters found a / after parsing path parameters
