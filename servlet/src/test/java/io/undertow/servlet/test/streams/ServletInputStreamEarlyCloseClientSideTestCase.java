@@ -18,6 +18,7 @@
 
 package io.undertow.servlet.test.streams;
 
+import io.undertow.UndertowOptions;
 import io.undertow.servlet.api.ServletInfo;
 import io.undertow.servlet.test.util.DeploymentUtils;
 import io.undertow.testutils.DefaultServer;
@@ -28,6 +29,7 @@ import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.xnio.OptionMap;
 
 import javax.servlet.ServletException;
 import java.io.OutputStream;
@@ -52,6 +54,16 @@ public class ServletInputStreamEarlyCloseClientSideTestCase {
         DeploymentUtils.setupServlet(
                 new ServletInfo(SERVLET, EarlyCloseClientServlet.class)
                         .addMapping("/" + SERVLET));
+    }
+
+    @DefaultServer.BeforeServerStarts
+    public static void setupServer() {
+        DefaultServer.setServerOptions(OptionMap.create(UndertowOptions.MAX_ENTITY_SIZE, -1L));
+    }
+
+    @DefaultServer.AfterServerStops
+    public static void cleanup() {
+        DefaultServer.setServerOptions(OptionMap.EMPTY);
     }
 
     @Test

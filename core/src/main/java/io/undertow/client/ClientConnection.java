@@ -124,14 +124,6 @@ public interface ClientConnection extends Channel {
     void addCloseListener(ChannelListener<ClientConnection> listener);
 
     /**
-     * Flush bytes already written, then shut the connection down.
-     * A fixed-length body that ended early is delivered, and the peer then sees EOF.
-     */
-    default void closeGracefully() throws IOException {
-        close();
-    }
-
-    /**
      *
      * @return <code>true</code> if the underlying protocol supports sending a ping
      */

@@ -492,30 +492,6 @@ class HttpClientConnection extends AbstractAttachable implements Closeable, Clie
     }
 
     /**
-     * Finish the current request with a normal shutdown instead of a reset.
-     * Used when the caller went away before the declared body length was read,
-     * so the peer still receives the bytes already written and then EOF.
-     */
-    @Override
-    public void closeGracefully() {
-        if (anyAreSet(state, CLOSED)) {
-            return;
-        }
-        state |= CLOSED | CLOSE_REQ;
-        ConduitStreamSinkChannel sinkChannel = connection.getSinkChannel();
-        boolean flushed = false;
-        try {
-            flushed = sinkChannel.flush();
-        } catch (IOException e) {
-            UndertowLogger.REQUEST_IO_LOGGER.ioException(e);
-        }
-        if (flushed) {
-            sinkChannel.setConduit(originalSinkConduit);
-        }
-        ConnectionUtils.cleanClose(connection);
-    }
-
-    /**
      * Notification that the current request is finished
      */
     public void exchangeDone() {

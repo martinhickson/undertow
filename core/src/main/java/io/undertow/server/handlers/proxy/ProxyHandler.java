@@ -808,13 +808,7 @@ public final class ProxyHandler implements HttpHandler {
         @Override
         public void handleException(Channel channel, IOException exception) {
             IoUtils.safeClose(channel);
-            // Shut the backend down after flushing. A reset drops the request, so the
-            // target never sees a client that closed before the declared body length.
-            try {
-                clientConnection.closeGracefully();
-            } catch (IOException e) {
-                IoUtils.safeClose(clientConnection);
-            }
+            IoUtils.safeClose(clientConnection);
             if (exchange.isResponseStarted()) {
                 UndertowLogger.REQUEST_IO_LOGGER.debug("Exception reading from target server", exception);
                 if (!exchange.isResponseStarted()) {
