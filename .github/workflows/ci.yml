@@ -4,27 +4,33 @@
 name: Undertow CI
 
 on:
+  push:
+    branches:
+      - 2.2.19.x
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: undertow-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-all:
     name: Compile (no tests) with JDK 8
     runs-on: ubuntu-latest
     steps:
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/cache@v1
+    - uses: actions/cache@v4
       with:
         path: ~/.m2/repository
         key: m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
             m2-
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up JDK 8
-      uses: joschi/setup-jdk@v2
+      uses: actions/setup-java@v4
       with:
+        distribution: temurin
         java-version: 8
     - name: Print Version
       run: mvn -v
@@ -34,14 +40,16 @@ jobs:
       shell: bash
       run: tar -czf maven-repo.tgz -C ~ .m2/repository
     - name: Persist Maven Repo
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: maven-repo
         path: maven-repo.tgz
-    - uses: actions/upload-artifact@v2
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: surefire-reports-build
+        if-no-files-found: ignore
         path: |
           **/surefire*-reports/*.txt
           **/*.dump*
@@ -70,33 +78,32 @@ jobs:
         echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' >	%SystemRoot%\System32\drivers\etc\hosts
         echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> %SystemRoot%\System32\drivers\etc\hosts
       shell: cmd
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
     - name: Host information
       run: |
        hostname || true
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Download Maven Repo
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: maven-repo
         path: .
     - name: Extract Maven Repo
       shell: bash
       run: tar -xzf maven-repo.tgz -C ~
-    - name: Set up JDK ${{ matrix.java }}
-      uses: joschi/setup-jdk@v2
+    - name: Set up JDK ${{ matrix.jdk }}
+      uses: actions/setup-java@v4
       with:
+        distribution: temurin
         java-version: ${{ matrix.jdk }}
     - name: Print Version
       run: mvn -v
     - name: Run Tests
       run: mvn -U -B -fae test -Pproxy '-DfailIfNoTests=false' -pl ${{ matrix.module }}
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: surefire-reports-${{ matrix.jdk }}-${{ matrix.module }}-${{ matrix.os }}
+        if-no-files-found: ignore
         path: |
               **/surefire*-reports/*.txt
               **/*.dump*
@@ -118,33 +125,32 @@ jobs:
         sudo bash -c "echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' > /etc/hosts"
         sudo bash -c "echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> /etc/hosts"
         sudo sysctl -w fs.file-max=2097152
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
     - name: Host information
       run: |
        hostname || true
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Download Maven Repo
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: maven-repo
         path: .
     - name: Extract Maven Repo
       shell: bash
       run: tar -xzf maven-repo.tgz -C ~
-    - name: Set up JDK ${{ matrix.java }}
-      uses: joschi/setup-jdk@v2
+    - name: Set up JDK ${{ matrix.jdk }}
+      uses: actions/setup-java@v4
       with:
+        distribution: temurin
         java-version: ${{ matrix.jdk }}
     - name: Print Version
       run: mvn -v
     - name: Run Tests
       run: mvn -U -B -fae test ${{ matrix.proxy }} '-DfailIfNoTests=false' -pl ${{ matrix.module }} -Dtest.ipv6=true
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: surefire-reports-${{ matrix.jdk }}-ipv6-${{ matrix.module }}${{ matrix.proxy }}-${{ matrix.os }}
+        if-no-files-found: ignore
         path: |
           **/surefire*-reports/*.txt
           **/*.dump*
