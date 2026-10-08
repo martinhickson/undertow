@@ -324,7 +324,7 @@ public class UndertowXnioSsl extends XnioSsl {
             sslParameters.setUseCipherSuitesOrder(true);
             engine.setSSLParameters(sslParameters);
         }
-        final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM, null);
+        final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM);
         if (endpointIdentificationAlgorithm != null) {
             SSLParameters sslParameters = engine.getSSLParameters();
             sslParameters.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
@@ -470,12 +470,12 @@ public class UndertowXnioSsl extends XnioSsl {
                 InetAddress address = destination.getAddress();
                 String hostnameValue = destination.getHostString();
                 if (address instanceof Inet6Address && hostnameValue.contains(":")) {
-                    // WFLY-13748 get hostname value instead of IPV6adress if it's ipv6
+                    // WFLY-13748 get hostname value instead of IPV6adress if it is ipv6
                     // SNIHostname throw exception if adress contains :
                     hostnameValue = address.getHostName();
                 }
                 params.setServerNames(Collections.singletonList(new SNIHostName(hostnameValue)));
-                final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM, null);
+                final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM);
                 if (endpointIdentificationAlgorithm != null) {
                     params.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
                 }
