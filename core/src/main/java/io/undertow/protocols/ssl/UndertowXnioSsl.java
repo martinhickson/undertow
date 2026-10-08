@@ -19,8 +19,6 @@
 package io.undertow.protocols.ssl;
 
 import java.io.IOException;
-import java.net.Inet6Address;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
@@ -443,6 +441,18 @@ public class UndertowXnioSsl extends XnioSsl {
         this.sslContext = context;
     }
 
+    private void setSNIHostName(InetSocketAddress destination, SSLParameters params) {
+        if (destination == null || destination.getAddress() == null) {
+            return;
+        }
+        // SNI is a hostname. An IP literal is not sent, so endpoint identification
+        // checks the address rather than a reverse-DNS name.
+        if (destination.getHostString().equals(destination.getAddress().getHostAddress())) {
+            return;
+        }
+        params.setServerNames(Collections.singletonList(new SNIHostName(destination.getHostString())));
+    }
+
     public AcceptingChannel<SslConnection> createSslConnectionServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<SslConnection>> acceptListener, final OptionMap optionMap) throws IOException {
         final UndertowAcceptingSslChannel server = new UndertowAcceptingSslChannel(this, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, bufferPool, false);
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
@@ -467,14 +477,7 @@ public class UndertowXnioSsl extends XnioSsl {
 
                 SSLEngine sslEngine = JsseSslUtils.createSSLEngine(sslContext, optionMap, destination);
                 SSLParameters params = sslEngine.getSSLParameters();
-                InetAddress address = destination.getAddress();
-                String hostnameValue = destination.getHostString();
-                if (address instanceof Inet6Address && hostnameValue.contains(":")) {
-                    // WFLY-13748 get hostname value instead of IPV6adress if it is ipv6
-                    // SNIHostname throw exception if adress contains :
-                    hostnameValue = address.getHostName();
-                }
-                params.setServerNames(Collections.singletonList(new SNIHostName(hostnameValue)));
+                setSNIHostName(destination, params);
                 final String endpointIdentificationAlgorithm = optionMap.get(UndertowOptions.ENDPOINT_IDENTIFICATION_ALGORITHM);
                 if (endpointIdentificationAlgorithm != null) {
                     params.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
