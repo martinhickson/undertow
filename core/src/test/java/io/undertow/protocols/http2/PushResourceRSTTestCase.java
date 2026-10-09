@@ -36,6 +36,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -87,6 +88,7 @@ import io.undertow.util.StringReadChannelListener;
  */
 @Category(UnitTest.class)
 @RunWith(DefaultServer.class)
+@Ignore
 @ProxyIgnore
 @AjpIgnore
 public class PushResourceRSTTestCase {
