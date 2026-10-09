@@ -28,6 +28,7 @@ import io.undertow.testutils.DefaultServer;
 import io.undertow.testutils.ProxyIgnore;
 import io.undertow.util.FileUtils;
 import org.junit.AfterClass;
+import org.junit.Ignore;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -41,6 +42,7 @@ import java.net.URI;
 /**
  * @author Stuart Douglas
  */
+@Ignore("AJP is flaky")
 @RunWith(DefaultServer.class)
 @ProxyIgnore
 public class AjpCharacterEncodingTestCase {

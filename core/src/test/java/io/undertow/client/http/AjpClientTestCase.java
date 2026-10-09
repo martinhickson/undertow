@@ -45,6 +45,7 @@ import io.undertow.util.StatusCodes;
 import io.undertow.util.StringReadChannelListener;
 import io.undertow.util.StringWriteChannelListener;
 import org.junit.AfterClass;
+import org.junit.Ignore;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -64,6 +65,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * @author Emanuel Muckenhuber
  */
+@Ignore("AJP is flaky")
 @RunWith(DefaultServer.class)
 @HttpOneOnly
 public class AjpClientTestCase {

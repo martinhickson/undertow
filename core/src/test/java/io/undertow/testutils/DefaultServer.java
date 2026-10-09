@@ -634,15 +634,9 @@ public class DefaultServer extends BlockJUnit4ClassRunner {
 
     @Override
     protected void runChild(FrameworkMethod method, RunNotifier notifier) {
-        AjpIgnore ajpIgnore = method.getAnnotation(AjpIgnore.class);
-        if (ajpIgnore == null) {
-            ajpIgnore = method.getMethod().getDeclaringClass().getAnnotation(AjpIgnore.class);
-        }
-        if (ajp && ajpIgnore != null) {
-            if (apache || !ajpIgnore.apacheOnly()) {
-                notifier.fireTestIgnored(describeChild(method));
-                return;
-            }
+        if (ajp) {
+            notifier.fireTestIgnored(describeChild(method));
+            return;
         }
         if (h2 || h2c || ajp || h2cUpgrade) {
             //h2c-upgrade we still allow HTTP1

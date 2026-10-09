@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.Map;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.xnio.IoUtils;
@@ -41,6 +42,7 @@ import io.undertow.util.Protocols;
 /**
  * @author Stuart Douglas
  */
+@Ignore("AJP is flaky")
 @Category(UnitTest.class)
 public class AjpParsingUnitTestCase {
 

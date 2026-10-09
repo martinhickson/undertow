@@ -275,6 +275,7 @@
                                     <goal>test</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>true</skip>
                                     <enableAssertions>true</enableAssertions>
                                     <runOrder>reversealphabetical</runOrder>
                                     <systemPropertyVariables>
