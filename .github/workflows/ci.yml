@@ -92,7 +92,7 @@ jobs:
     - name: Extract Maven Repo
       shell: bash
       run: tar -xzf maven-repo.tgz -C ~
-    - name: Set up JDK ${{ matrix.java }}
+    - name: Set up JDK ${{ matrix.jdk }}
       uses: actions/setup-java@v4
       with:
         distribution: ${{ matrix.openjdk_impl }}
