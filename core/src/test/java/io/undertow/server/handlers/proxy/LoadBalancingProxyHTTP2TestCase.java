@@ -40,6 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.FutureResult;
 import org.xnio.IoFuture;
+import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import io.undertow.Undertow;
@@ -145,19 +146,30 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
 
     @Test
     public void testHttp2ClientMultipleStreamsThreadSafety() throws IOException, URISyntaxException, ExecutionException, InterruptedException, TimeoutException {
-        //not actually a proxy test
-        //but convent to put it here
-        UndertowXnioSsl ssl = new UndertowXnioSsl(DefaultServer.getWorker().getXnio(), OptionMap.EMPTY, DefaultServer.SSL_BUFFER_POOL, DefaultServer.createClientSslContext());
-        final UndertowClient client = UndertowClient.getInstance();
-        final ClientConnection connection = client.connect(new URI("https", null, DefaultServer.getHostAddress(), DefaultServer.getHostPort() + 1, "/", null, null), DefaultServer.getWorker(), ssl, DefaultServer.getBufferPool(), OptionMap.create(UndertowOptions.ENABLE_HTTP2, true)).get();
+        // Not a proxy test. The shared backends close a connection that has no request for one
+        // second, which the timeout test needs. This burst uses its own listener without that limit.
+        final int port = DefaultServer.getHostPort() + 3;
+        final Undertow server = Undertow.builder()
+                .addHttpsListener(port, DefaultServer.getHostAddress("default"), DefaultServer.getServerSslContext())
+                .setServerOption(UndertowOptions.ENABLE_HTTP2, true)
+                .setSocketOption(Options.REUSE_ADDRESSES, true)
+                .setHandler(new HttpHandler() {
+                    @Override
+                    public void handleRequest(final HttpServerExchange exchange) throws Exception {
+                        if (!(exchange.getConnection() instanceof Http2ServerConnection)) {
+                            throw new RuntimeException("Not HTTP2");
+                        }
+                        exchange.getResponseSender().send(exchange.getRequestURI());
+                    }
+                })
+                .build();
+        server.start();
         final ExecutorService service = Executors.newFixedThreadPool(10);
+        ClientConnection connection = null;
         try {
-            // The backend closes a connection that has no request for one second.
-            // Start a request on this thread before the pool runs, so a slow worker
-            // start does not idle the connection out.
-            final FutureResult<String> warmup = new FutureResult<>();
-            sendPathRequest(connection, warmup);
-
+            UndertowXnioSsl ssl = new UndertowXnioSsl(DefaultServer.getWorker().getXnio(), OptionMap.EMPTY, DefaultServer.SSL_BUFFER_POOL, DefaultServer.createClientSslContext());
+            connection = UndertowClient.getInstance().connect(new URI("https", null, DefaultServer.getHostAddress(), port, "/", null, null), DefaultServer.getWorker(), ssl, DefaultServer.getBufferPool(), OptionMap.create(UndertowOptions.ENABLE_HTTP2, true)).get();
+            final ClientConnection requestConnection = connection;
             Deque<FutureResult<String>> futures = new ArrayDeque<>();
             for (int i = 0; i < 100; ++i) {
                 final FutureResult<String> future = new FutureResult<>();
@@ -166,12 +178,11 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
 
                     @Override
                     public String call() {
-                        sendPathRequest(connection, future);
+                        sendPathRequest(requestConnection, future);
                         return null;
                     }
                 });
             }
-            Assert.assertEquals("/path", warmup.getIoFuture().get());
             while (!futures.isEmpty()) {
                 FutureResult<String> future = futures.poll();
                 Assert.assertNotEquals(IoFuture.Status.WAITING, future.getIoFuture().awaitInterruptibly(10, TimeUnit.SECONDS));
@@ -179,6 +190,8 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
             }
         } finally {
             service.shutdownNow();
+            IoUtils.safeClose(connection);
+            server.stop();
         }
     }
 
