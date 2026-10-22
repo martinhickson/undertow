@@ -1,0 +1,322 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 2.2.19.bravura-7)'
+        required: true
+        default: '2.2.19.bravura-7'
+        type: string
+      release_branch:
+        description: 'Release branch name'
+        required: true
+        default: 'release/2.2.19.bravura-7'
+        type: string
+      source_branch:
+        description: 'Source branch to base the release on'
+        required: true
+        default: '2.2.19.x'
+        type: string
+      upload_to_github_packages:
+        description: 'Upload Maven artifacts to GitHub Packages'
+        required: false
+        default: false
+        type: boolean
+      deploy_to_maven_central:
+        description: 'Publish to Maven Central (io.github.martinhickson)'
+        required: false
+        default: true
+        type: boolean
+      central_group_id:
+        description: 'Maven groupId for Maven Central (verified namespace)'
+        required: false
+        default: 'io.github.martinhickson'
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Install Maven 3.9.9
+        run: |
+          curl -fsSL -o /tmp/maven.tgz https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.9/apache-maven-3.9.9-bin.tar.gz
+          sudo tar -xzf /tmp/maven.tgz -C /opt
+          echo "/opt/apache-maven-3.9.9/bin" >> $GITHUB_PATH
+          echo "MAVEN_HOME=/opt/apache-maven-3.9.9" >> $GITHUB_ENV
+
+      - name: Show Maven version
+        run: mvn -version
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Checkout source branch
+        run: |
+          SOURCE_BRANCH="${{ github.event.inputs.source_branch }}"
+          echo "Checking out source branch: $SOURCE_BRANCH"
+          # Check if source branch exists remotely
+          if ! git ls-remote --heads origin "$SOURCE_BRANCH" | grep -q "refs/heads/$SOURCE_BRANCH$"; then
+            echo "Error: Source branch $SOURCE_BRANCH does not exist remotely"
+            exit 1
+          fi
+          # Fetch all branches
+          git fetch origin
+          # Checkout the source branch
+          git checkout $SOURCE_BRANCH
+          git pull origin $SOURCE_BRANCH
+
+      - name: Create or checkout release branch
+        run: |
+          SOURCE_BRANCH="${{ github.event.inputs.source_branch }}"
+          BRANCH_NAME="${{ github.event.inputs.release_branch }}"
+          # Check if release branch exists locally or remotely (with exact match)
+          if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
+            echo "Release branch $BRANCH_NAME exists locally, checking out..."
+            git checkout $BRANCH_NAME
+            git pull origin $BRANCH_NAME || true
+          elif git ls-remote --heads origin "$BRANCH_NAME" | grep -q "refs/heads/$BRANCH_NAME$"; then
+            echo "Release branch $BRANCH_NAME exists remotely, checking out..."
+            git fetch origin $BRANCH_NAME:$BRANCH_NAME
+            git checkout $BRANCH_NAME
+            git pull origin $BRANCH_NAME || true
+          else
+            echo "Creating new release branch $BRANCH_NAME from source branch $SOURCE_BRANCH..."
+            git checkout -b $BRANCH_NAME
+          fi
+
+      - name: Set Maven version
+        run: |
+          mvn versions:set -DnewVersion="${{ github.event.inputs.version }}" -DgenerateBackupPoms=false
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to set Maven version"
+            exit 1
+          fi
+
+      - name: Verify version change
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Current version: $VERSION"
+          if [ "$VERSION" != "${{ github.event.inputs.version }}" ]; then
+            echo "Error: Version mismatch. Expected ${{ github.event.inputs.version }}, got $VERSION"
+            exit 1
+          fi
+
+      - name: Build project
+        run: mvn clean install -DskipTests
+
+      - name: Collect release artifacts
+        id: collect_artifacts
+        run: |
+          # Create temporary files
+          ARTIFACTS_FILE=$(mktemp)
+          SEEN_NAMES=$(mktemp)
+          STAGING=/tmp/release-staging
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          # Find all JAR files (excluding test JARs and original JARs) and verify they exist
+          find . -type f -name "*.jar" -path "*/target/*" ! -path "*/original-*" ! -name "*-tests.jar" | while read -r file; do
+            # Normalize path (remove ./ prefix) and verify file exists
+            normalized=$(echo "$file" | sed 's|^\./||')
+            if [ -f "$normalized" ]; then
+              # Get basename to check for duplicates (GitHub Releases can't have duplicate filenames)
+              basename=$(basename "$normalized")
+              # Only add if we haven't seen this filename before (keep first occurrence)
+              if ! grep -Fxq "$basename" "$SEEN_NAMES" 2>/dev/null; then
+                cp "$normalized" "$STAGING/$basename"
+                echo "$STAGING/$basename" >> "$ARTIFACTS_FILE"
+                echo "$basename" >> "$SEEN_NAMES"
+              else
+                echo "Skipping duplicate filename: $normalized (already have $basename)"
+              fi
+            fi
+          done
+          # Find all POM files and verify they exist
+          find . -type f -name "pom.xml" -path "*/target/pom.xml" | while read -r file; do
+            # Normalize path (remove ./ prefix) and verify file exists
+            normalized=$(echo "$file" | sed 's|^\./||')
+            if [ -f "$normalized" ]; then
+              # Get basename to check for duplicates
+              basename=$(basename "$normalized")
+              # Only add if we haven't seen this filename before
+              if ! grep -Fxq "$basename" "$SEEN_NAMES" 2>/dev/null; then
+                cp "$normalized" "$STAGING/$basename"
+                echo "$STAGING/$basename" >> "$ARTIFACTS_FILE"
+                echo "$basename" >> "$SEEN_NAMES"
+              else
+                echo "Skipping duplicate filename: $normalized (already have $basename)"
+              fi
+            fi
+          done
+          # Sort the file
+          sort "$ARTIFACTS_FILE" -o "$ARTIFACTS_FILE"
+          # Output files as newline-separated list (multiline output)
+          if [ -s "$ARTIFACTS_FILE" ]; then
+            {
+              echo "files<<EOF"
+              cat "$ARTIFACTS_FILE"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+            echo "Collected artifacts:"
+            while read -r file; do
+              if [ -n "$file" ] && [ -f "$file" ]; then
+                echo "  - $file ($(du -h "$file" | cut -f1))"
+              fi
+            done < "$ARTIFACTS_FILE"
+          else
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "Warning: No artifacts found"
+          fi
+          rm -f "$ARTIFACTS_FILE" "$SEEN_NAMES"
+
+      - name: Publish to Maven Central
+        if: github.event.inputs.deploy_to_maven_central == 'true'
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_CENTRAL_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_CENTRAL_GPG_PRIVATE_KEY }}
+          MAVEN_CENTRAL_GPG_PASSPHRASE: ${{ secrets.MAVEN_CENTRAL_GPG_PASSPHRASE }}
+          CENTRAL_GROUP_ID: ${{ github.event.inputs.central_group_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MAVEN_CENTRAL_USERNAME}" ] || [ -z "${MAVEN_CENTRAL_PASSWORD}" ] || [ -z "${MAVEN_CENTRAL_GPG_PRIVATE_KEY}" ]; then
+            echo "::error::Maven Central publishing is not configured. Set MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, and MAVEN_CENTRAL_GPG_PRIVATE_KEY."
+            exit 1
+          fi
+          rm -rf /tmp/pom-backup
+          find . -name pom.xml -not -path './.git/*' -not -path '*/target/*' -print0 |
+            while IFS= read -r -d '' pom; do
+              mkdir -p "/tmp/pom-backup/$(dirname "$pom")"
+              cp "$pom" "/tmp/pom-backup/$pom"
+            done
+          chmod +x .github/scripts/rewrite-group-id.sh
+          .github/scripts/rewrite-group-id.sh io.undertow "${CENTRAL_GROUP_ID}"
+          find . -name pom.xml -not -path './.git/*' -not -path '*/target/*' -print0 |
+            while IFS= read -r -d '' pom; do
+              sed -i \
+                -e 's|git://github.com/undertow-io/undertow.git|https://github.com/martinhickson/undertow.git|g' \
+                -e 's|https://github.com/undertow-io/undertow|https://github.com/martinhickson/undertow|g' \
+                "$pom"
+            done
+          mkdir -p ~/.m2
+          if [ ! -f ~/.m2/settings.xml ]; then
+            printf '%s\n' '<settings><servers></servers></settings>' > ~/.m2/settings.xml
+          fi
+          if ! grep -q '<id>central</id>' ~/.m2/settings.xml; then
+            sed -i "/<\/servers>/i\\
+              <server>\\
+                <id>central</id>\\
+                <username>${MAVEN_CENTRAL_USERNAME}</username>\\
+                <password>${MAVEN_CENTRAL_PASSWORD}</password>\\
+              </server>" ~/.m2/settings.xml
+          fi
+          echo "${MAVEN_CENTRAL_GPG_PRIVATE_KEY}" | gpg --batch --import --pinentry-mode loopback
+          mvn deploy -Pcentral-release -DskipTests \
+            -Dmaven.javadoc.failOnError=false \
+            -Dgpg.passphrase="${MAVEN_CENTRAL_GPG_PASSPHRASE}"
+          find /tmp/pom-backup -name pom.xml -print0 |
+            while IFS= read -r -d '' src; do
+              rel="${src#/tmp/pom-backup/}"
+              cp "$src" "$rel"
+            done
+          if grep -R --include=pom.xml -n "${CENTRAL_GROUP_ID}" . ; then
+            echo "::error::Maven Central groupId was left in a POM after restore"
+            exit 1
+          fi
+          echo "restored poms"
+
+      - name: Commit version change
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Set version to ${{ github.event.inputs.version }}"
+          fi
+
+      - name: Push release branch
+        run: |
+          BRANCH_NAME="${{ github.event.inputs.release_branch }}"
+          git push -u origin $BRANCH_NAME
+
+      - name: Create and push tag
+        id: check_tag
+        run: |
+          TAG_NAME="${{ github.event.inputs.version }}"
+          # Check both local and remote tags
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1 || git ls-remote --tags origin "$TAG_NAME" | grep -q "refs/tags/$TAG_NAME$"; then
+            echo "Tag $TAG_NAME already exists, skipping..."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            git tag -a "$TAG_NAME" -m "Release ${{ github.event.inputs.version }}"
+            git push origin "$TAG_NAME"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Undertow Release v${{ github.event.inputs.version }}
+          body: |
+            This is a release of Undertow version ${{ github.event.inputs.version }}.
+
+            Maven Central groupId `${{ github.event.inputs.central_group_id }}` when Maven Central deploy is enabled (default).
+
+            ```xml
+            <dependency>
+              <groupId>${{ github.event.inputs.central_group_id }}</groupId>
+              <artifactId>undertow-core</artifactId>
+              <version>${{ github.event.inputs.version }}</version>
+            </dependency>
+            ```
+          files: ${{ steps.collect_artifacts.outputs.files }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to GitHub Packages
+        if: github.event.inputs.upload_to_github_packages == 'true'
+        run: |
+          # Configure Maven settings for GitHub Packages
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+            http://maven.apache.org/xsd/settings-1.0.0.xsd">
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.GITHUB_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+          
+          # Deploy to GitHub Packages using altDeploymentRepository
+          REPO_URL="https://maven.pkg.github.com/${{ github.repository }}"
+          echo "Deploying artifacts to GitHub Packages at $REPO_URL"
+          mvn deploy -DskipTests -DaltDeploymentRepository=github::default::$REPO_URL
+
