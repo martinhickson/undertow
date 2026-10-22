@@ -443,18 +443,34 @@ public abstract class AbstractFramedStreamSinkChannel<C extends AbstractFramedCh
     }
 
     private PooledByteBuffer getWriteBuffer() throws IOException {
-        if(!safeToSend()) {
-            return null;
+        synchronized (lock) {
+            if (anyAreSet(state, STATE_CLOSED) || broken || !safeToSend()) {
+                return null;
+            }
+            if (writeBuffer != null) {
+                return writeBuffer;
+            }
         }
-        if(writeBuffer == null) {
-            writeBuffer = getChannel().getBufferPool().allocate();
+        // Allocate outside the lock. close() frees writeBuffer under the same lock, so an
+        // allocate done after close has finished would never be freed.
+        final PooledByteBuffer allocated = getChannel().getBufferPool().allocate();
+        synchronized (lock) {
+            try {
+                if (anyAreSet(state, STATE_CLOSED) || broken || !safeToSend()) {
+                    allocated.close();
+                    return null;
+                }
+            } catch (RuntimeException | IOException e) {
+                allocated.close();
+                throw e;
+            }
+            if (writeBuffer != null) {
+                allocated.close();
+                return writeBuffer;
+            }
+            writeBuffer = allocated;
+            return writeBuffer;
         }
-        PooledByteBuffer localWriteBuffer = writeBuffer;
-        // writeBuffer can be null in case of a concurrent close of this channel while writing
-        if (localWriteBuffer == null) {
-            safeToSend();
-        }
-        return localWriteBuffer;
     }
 
     /**
