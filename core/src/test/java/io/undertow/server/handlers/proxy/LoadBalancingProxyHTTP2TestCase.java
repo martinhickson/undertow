@@ -152,6 +152,12 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
         final ClientConnection connection = client.connect(new URI("https", null, DefaultServer.getHostAddress(), DefaultServer.getHostPort() + 1, "/", null, null), DefaultServer.getWorker(), ssl, DefaultServer.getBufferPool(), OptionMap.create(UndertowOptions.ENABLE_HTTP2, true)).get();
         final ExecutorService service = Executors.newFixedThreadPool(10);
         try {
+            // The backend closes a connection that has no request for one second.
+            // Start a request on this thread before the pool runs, so a slow worker
+            // start does not idle the connection out.
+            final FutureResult<String> warmup = new FutureResult<>();
+            sendPathRequest(connection, warmup);
+
             Deque<FutureResult<String>> futures = new ArrayDeque<>();
             for (int i = 0; i < 100; ++i) {
                 final FutureResult<String> future = new FutureResult<>();
@@ -159,46 +165,13 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
                 service.submit(new Callable<String>() {
 
                     @Override
-                    public String call() throws Exception {
-                        ClientRequest cr = new ClientRequest()
-                                .setMethod(Methods.GET)
-                                .setPath("/path")
-                                .setProtocol(Protocols.HTTP_1_1);
-                        connection.sendRequest(cr, new ClientCallback<ClientExchange>() {
-                            @Override
-                            public void completed(ClientExchange result) {
-                                result.setResponseListener(new ClientCallback<ClientExchange>() {
-                                    @Override
-                                    public void completed(ClientExchange result) {
-                                        new StringReadChannelListener(DefaultServer.getBufferPool()) {
-                                            @Override
-                                            protected void stringDone(String string) {
-                                                future.setResult(string);
-                                            }
-
-                                            @Override
-                                            protected void error(IOException e) {
-                                                future.setException(e);
-                                            }
-                                        }.setup(result.getResponseChannel());
-                                    }
-
-                                    @Override
-                                    public void failed(IOException e) {
-                                        future.setException(e);
-                                    }
-                                });
-                            }
-
-                            @Override
-                            public void failed(IOException e) {
-                                future.setException(e);
-                            }
-                        });
+                    public String call() {
+                        sendPathRequest(connection, future);
                         return null;
                     }
                 });
             }
+            Assert.assertEquals("/path", warmup.getIoFuture().get());
             while (!futures.isEmpty()) {
                 FutureResult<String> future = futures.poll();
                 Assert.assertNotEquals(IoFuture.Status.WAITING, future.getIoFuture().awaitInterruptibly(10, TimeUnit.SECONDS));
@@ -207,5 +180,43 @@ public class LoadBalancingProxyHTTP2TestCase extends AbstractLoadBalancingProxyT
         } finally {
             service.shutdownNow();
         }
+    }
+
+    private static void sendPathRequest(final ClientConnection connection, final FutureResult<String> future) {
+        ClientRequest cr = new ClientRequest()
+                .setMethod(Methods.GET)
+                .setPath("/path")
+                .setProtocol(Protocols.HTTP_1_1);
+        connection.sendRequest(cr, new ClientCallback<ClientExchange>() {
+            @Override
+            public void completed(ClientExchange result) {
+                result.setResponseListener(new ClientCallback<ClientExchange>() {
+                    @Override
+                    public void completed(ClientExchange result) {
+                        new StringReadChannelListener(DefaultServer.getBufferPool()) {
+                            @Override
+                            protected void stringDone(String string) {
+                                future.setResult(string);
+                            }
+
+                            @Override
+                            protected void error(IOException e) {
+                                future.setException(e);
+                            }
+                        }.setup(result.getResponseChannel());
+                    }
+
+                    @Override
+                    public void failed(IOException e) {
+                        future.setException(e);
+                    }
+                });
+            }
+
+            @Override
+            public void failed(IOException e) {
+                future.setException(e);
+            }
+        });
     }
 }
