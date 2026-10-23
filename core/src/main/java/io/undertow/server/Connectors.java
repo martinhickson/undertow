@@ -22,10 +22,12 @@ import io.undertow.UndertowLogger;
 import io.undertow.UndertowMessages;
 import io.undertow.UndertowOptions;
 import io.undertow.server.handlers.Cookie;
+import io.undertow.util.BadRequestException;
 import io.undertow.util.DateUtils;
 import io.undertow.util.HeaderMap;
 import io.undertow.util.HeaderValues;
 import io.undertow.util.Headers;
+import io.undertow.util.ParserUtils;
 import io.undertow.util.HttpString;
 import io.undertow.util.LegacyCookieSupport;
 import io.undertow.util.ParameterLimitException;
@@ -40,6 +42,8 @@ import java.util.Date;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import static io.undertow.util.ParserUtils.isRequestTargetChar;
+
 /**
  * This class provides the connector part of the {@link HttpServerExchange} API.
  * <p>
@@ -51,60 +55,6 @@ import java.util.concurrent.RejectedExecutionException;
  */
 public class Connectors {
 
-    private static final boolean[] ALLOWED_TOKEN_CHARACTERS = new boolean[256];
-    private static final boolean[] ALLOWED_SCHEME_CHARACTERS = new boolean[256];
-
-    static {
-        for(int i = 0; i < ALLOWED_TOKEN_CHARACTERS.length; ++i) {
-            if((i >='0' && i <= '9') ||
-                    (i >='a' && i <= 'z') ||
-                    (i >='A' && i <= 'Z')) {
-                ALLOWED_TOKEN_CHARACTERS[i] = true;
-            } else {
-                switch (i) {
-                    case '!':
-                    case '#':
-                    case '$':
-                    case '%':
-                    case '&':
-                    case '\'':
-                    case '*':
-                    case '+':
-                    case '-':
-                    case '.':
-                    case '^':
-                    case '_':
-                    case '`':
-                    case '|':
-                    case '~': {
-                        ALLOWED_TOKEN_CHARACTERS[i] = true;
-                        break;
-                    }
-                    default:
-                        ALLOWED_TOKEN_CHARACTERS[i] = false;
-                }
-            }
-        }
-
-        for(int i = 0; i < ALLOWED_SCHEME_CHARACTERS.length; ++i) {
-            if((i >='0' && i <= '9') ||
-                    (i >='a' && i <= 'z') ||
-                    (i >='A' && i <= 'Z')) {
-                ALLOWED_SCHEME_CHARACTERS[i] = true;
-            } else {
-                switch (i) {
-                    case '+':
-                    case '-':
-                    case '.': {
-                        ALLOWED_SCHEME_CHARACTERS[i] = true;
-                        break;
-                    }
-                    default:
-                        ALLOWED_SCHEME_CHARACTERS[i] = false;
-                }
-            }
-        }
-    }
     /**
      * Flattens the exchange cookie map into the response header map. This should be called by a
      * connector just before the response is started.
@@ -439,7 +389,7 @@ public class Connectors {
     public static void setExchangeRequestPath(final HttpServerExchange exchange, final String encodedPath, final String charset, boolean decode, final boolean allowEncodedSlash, StringBuilder decodeBuffer) {
         try {
             setExchangeRequestPath(exchange, encodedPath, charset, decode, allowEncodedSlash, decodeBuffer, exchange.getConnection().getUndertowOptions().get(UndertowOptions.MAX_PARAMETERS, UndertowOptions.DEFAULT_MAX_PARAMETERS));
-        } catch (ParameterLimitException e) {
+        } catch (ParameterLimitException | BadRequestException e) {
             throw new RuntimeException(e);
         }
     }
@@ -450,12 +400,16 @@ public class Connectors {
          * @param encodedPath        The encoded path
          * @param charset     The charset
          */
-    public static void setExchangeRequestPath(final HttpServerExchange exchange, final String encodedPath, final String charset, boolean decode, final boolean allowEncodedSlash, StringBuilder decodeBuffer, int maxParameters) throws ParameterLimitException {
+    public static void setExchangeRequestPath(final HttpServerExchange exchange, final String encodedPath, final String charset, boolean decode, final boolean allowEncodedSlash, StringBuilder decodeBuffer, int maxParameters) throws ParameterLimitException, BadRequestException {
+        final boolean allowUnescapedCharactersInUrl = exchange.getConnection().getUndertowOptions().get(UndertowOptions.ALLOW_UNESCAPED_CHARACTERS_IN_URL, false);
         boolean requiresDecode = false;
         final StringBuilder pathBuilder = new StringBuilder();
         int currentPathPartIndex = 0;
         for (int i = 0; i < encodedPath.length(); ++i) {
             char c = encodedPath.charAt(i);
+            if(!allowUnescapedCharactersInUrl && !isRequestTargetChar((byte)c)) {
+                throw new BadRequestException(UndertowMessages.MESSAGES.invalidCharacterInRequestTarget(c));
+            }
             if (c == '?') {
                 String part;
                 String encodedPart = encodedPath.substring(currentPathPartIndex, i);
@@ -545,7 +499,7 @@ public class Connectors {
         int length = header.length();
         for(int i = 0; i < length; ++i) {
             byte c = header.byteAt(i);
-            if(!ALLOWED_TOKEN_CHARACTERS[c]) {
+            if(!ParserUtils.isTokenChar(c)) {
                 throw UndertowMessages.MESSAGES.invalidToken(c);
             }
         }
@@ -555,13 +509,12 @@ public class Connectors {
      * Returns true if the token character is valid according to rfc7230
      */
     public static boolean isValidTokenCharacter(byte c) {
-        return ALLOWED_TOKEN_CHARACTERS[c];
+        return ParserUtils.isTokenChar(c);
     }
 
     public static boolean isValidSchemeCharacter(byte c) {
-        return ALLOWED_SCHEME_CHARACTERS[c];
+        return ParserUtils.isSchemeChar(c);
     }
-
 
     /**
      * Verifies that the provided request headers are valid according to rfc7230. In particular:

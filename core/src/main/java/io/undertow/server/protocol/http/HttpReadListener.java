@@ -67,8 +67,8 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
     private static final String BAD_REQUEST = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 
     private final HttpServerConnection connection;
-    private final ParseState state;
-    private final HttpRequestParser parser;
+    private final RequestState state = new RequestState();
+    private final RequestParser parser;
 
     private HttpServerExchange httpServerExchange;
 
@@ -89,12 +89,7 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
 
     private ParseTimeoutUpdater parseTimeoutUpdater;
 
-    /**
-     * If this is true then deprecated configuration options will log warnings. Defaults to false.
-     */
-    private static final boolean STRICT_CONFIGURATION_CHECK = false;
-
-    HttpReadListener(final HttpServerConnection connection, final HttpRequestParser parser, ConnectorStatisticsImpl connectorStatistics) {
+    HttpReadListener(final HttpServerConnection connection, final RequestParser parser, ConnectorStatisticsImpl connectorStatistics) {
         this.connection = connection;
         this.parser = parser;
         this.connectorStatistics = connectorStatistics;
@@ -110,12 +105,8 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
             this.parseTimeoutUpdater = new ParseTimeoutUpdater(connection, requestParseTimeout, requestIdleTimeout);
             connection.addCloseListener(parseTimeoutUpdater);
         }
-        state = new ParseState(connection.getUndertowOptions().get(UndertowOptions.HTTP_HEADERS_CACHE_SIZE, UndertowOptions.DEFAULT_HTTP_HEADERS_CACHE_SIZE));
-
-        if (STRICT_CONFIGURATION_CHECK) {
-            if (connection.getUndertowOptions().contains(UndertowOptions.REQUIRE_HOST_HTTP11)) {
-                UndertowLogger.ROOT_LOGGER.configurationNotSupported("REQUIRE_HOST_HTTP11");
-            }
+        if (connection.getUndertowOptions().contains(UndertowOptions.REQUIRE_HOST_HTTP11)) {
+            UndertowLogger.ROOT_LOGGER.configurationNotSupported("REQUIRE_HOST_HTTP11");
         }
     }
 
@@ -147,12 +138,21 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
     public void handleEventWithNoRunningRequest(final ConduitStreamSourceChannel channel) {
         PooledByteBuffer existing = connection.getExtraBytes();
         if ((existing == null && connection.getOriginalSourceConduit().isReadShutdown()) || connection.getOriginalSinkConduit().isWriteShutdown()) {
+            UndertowLogger.REQUEST_IO_LOGGER.debug("Connection is closing, cancelling handling of request");
             IoUtils.safeClose(connection);
             channel.suspendReads();
             return;
         }
-
-        final PooledByteBuffer pooled = existing == null ? connection.getByteBufferPool().allocate() : existing;
+        final PooledByteBuffer pooled;
+        try {
+            pooled = existing == null ? connection.getByteBufferPool().allocate() : existing;
+        } catch (IllegalStateException e) {
+            UndertowLogger.REQUEST_IO_LOGGER.debug("Connection is closing, cancelling handling of request", e);
+            // shutdown started after previous if statement, so treat it like previous statement
+            IoUtils.safeClose(connection);
+            channel.suspendReads();
+            return;
+        }
         final ByteBuffer buffer = pooled.getBuffer();
         boolean free = true;
 
@@ -193,6 +193,14 @@ final class HttpReadListener implements ChannelListener<ConduitStreamSourceChann
                     httpServerExchange = new HttpServerExchange(connection, maxEntitySize);
                 }
                 parser.handle(buffer, state, httpServerExchange);
+                if (state.isComplete()) {
+                    // [UNDERTOW-2082] NOTE: this should be used only for HTTP1.x
+                    // Cookie crumb assembly is not on this 2.2.19 line.
+                    /*if(!Cookies.isCrumbsAssemplyDisabled()) {
+                        Cookies.assembleCrumbs(httpServerExchange.getRequestHeaders());
+                    }*/
+                    //TODO: list type headers?
+                }
                 if (buffer.hasRemaining()) {
                     free = false;
                     connection.setExtraBytes(pooled);

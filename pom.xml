@@ -113,7 +113,6 @@
     </properties>
 
     <modules>
-        <module>parser-generator</module>
         <module>core</module>
         <module>servlet</module>
         <module>examples</module>
@@ -335,12 +334,6 @@
             <dependency>
                 <groupId>io.undertow</groupId>
                 <artifactId>undertow-examples-jakarta</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.undertow</groupId>
-                <artifactId>undertow-parser-generator</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -37,6 +37,7 @@ import io.undertow.server.protocol.http.HttpContinue;
 import io.undertow.util.ConduitFactory;
 import io.undertow.util.DateUtils;
 import io.undertow.util.Headers;
+import io.undertow.util.BadRequestException;
 import io.undertow.util.ParameterLimitException;
 import io.undertow.util.Protocols;
 import org.xnio.ChannelListener;
@@ -433,7 +434,7 @@ public class Http2ServerConnection extends ServerConnection {
             exchange.setRequestScheme(this.exchange.getRequestScheme());
             try {
                 Connectors.setExchangeRequestPath(exchange, path, getUndertowOptions().get(UndertowOptions.URL_CHARSET, StandardCharsets.UTF_8.name()), getUndertowOptions().get(UndertowOptions.DECODE_URL, true), getUndertowOptions().get(UndertowOptions.ALLOW_ENCODED_SLASH, false), new StringBuilder(), getUndertowOptions().get(UndertowOptions.MAX_PARAMETERS, UndertowOptions.DEFAULT_MAX_HEADERS));
-            } catch (ParameterLimitException e) {
+            } catch (ParameterLimitException | BadRequestException e) {
                 UndertowLogger.REQUEST_IO_LOGGER.debug("Too many parameters in HTTP/2 request", e);
                 exchange.setStatusCode(StatusCodes.BAD_REQUEST);
                 exchange.endExchange();

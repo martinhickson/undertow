@@ -25,22 +25,21 @@ import org.xnio.Option;
  */
 public class UndertowOptions {
     /**
-     * The default read timeout in milliseconds for blocking reads. Used only when neither
-     * {@code READ_TIMEOUT} nor {@link #IDLE_TIMEOUT} is set. A configured value of {@code 0} or less
-     * disables that timeout.
+     *  The default read timeout to be used by read operations that absolutely require a timeout. Used only when both
+     *   READ_TIMEOUT and IDLE_TIMEOUT are not used. <br>UNIT: milliseconds.
      */
     public static final int DEFAULT_READ_TIMEOUT = 600000;
     /**
-     * The maximum size in bytes of a http request header.
+     * The maximum size in bytes of a http request header. <br>UNIT: Bytes.
      */
     public static final Option<Integer> MAX_HEADER_SIZE = Option.simple(UndertowOptions.class, "MAX_HEADER_SIZE", Integer.class);
     /**
-     * The default size we allow for the HTTP header.
+     * The default size we allow for the HTTP header. <br>UNIT: Bytes.
      */
     public static final int DEFAULT_MAX_HEADER_SIZE = 1024 * 1024;
 
     /**
-     * The default maximum size of the HTTP entity body.
+     * The default maximum size of the HTTP entity body. <br>UNIT: Bytes.
      */
     public static final Option<Long> MAX_ENTITY_SIZE = Option.simple(UndertowOptions.class, "MAX_ENTITY_SIZE", Long.class);
 
@@ -73,7 +72,7 @@ public class UndertowOptions {
      * The idle timeout in milliseconds after which the channel will be closed.
      *
      * If the underlying channel already has a read or write timeout set the smaller of the two values will be used
-     * for read/write timeouts.
+     * for read/write timeouts. <br>UNIT: Milliseconds.
      *
      */
     public static final Option<Integer> IDLE_TIMEOUT = Option.simple(UndertowOptions.class, "IDLE_TIMEOUT", Integer.class);
@@ -81,12 +80,12 @@ public class UndertowOptions {
     /**
      * The maximum allowed time of reading HTTP request in milliseconds.
      *
-     * <code>-1</code> or missing value disables this functionality.
+     * <code>-1</code> or missing value disables this functionality. <br>UNIT: Milliseconds.
      */
     public static final Option<Integer> REQUEST_PARSE_TIMEOUT = Option.simple(UndertowOptions.class, "REQUEST_PARSE_TIMEOUT", Integer.class);
 
     /**
-     * The amount of time the connection can be idle with no current requests before it is closed;
+     * The amount of time the connection can be idle with no current requests before it is closed; <br>UNIT: Milliseconds.
      */
     public static final Option<Integer> NO_REQUEST_TIMEOUT = Option.simple(UndertowOptions.class, "NO_REQUEST_TIMEOUT", Integer.class);
 
@@ -112,6 +111,8 @@ public class UndertowOptions {
     public static final Option<Integer> MAX_HEADERS = Option.simple(UndertowOptions.class, "MAX_HEADERS", Integer.class);
 
 
+    public static final int DEFAULT_MAX_COOKIES = 200;
+
     /**
      * The maximum number of cookies that will be parsed. This is used to protect against hash vulnerabilities.
      * <p>
@@ -126,10 +127,24 @@ public class UndertowOptions {
      * this is disabled by default.
      * <p>
      * Defaults to false
-     *
+     * <p>
      * See <a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-0450">CVE-2007-0450</a>
+     * @deprecated - this option was interpreted improperly.
+     * @See {@link #DECODE_SLASH}
      */
     public static final Option<Boolean> ALLOW_ENCODED_SLASH = Option.simple(UndertowOptions.class, "ALLOW_ENCODED_SLASH", Boolean.class);
+
+    /**
+     * If a request comes in with encoded / characters (i.e. %2F), will these be decoded.
+     * <p>
+     * This can cause security problems if a front end proxy does not perform the same decoding, and as a result
+     * this is disabled by default.
+     * <p>
+     * If this option is set explicitly, the {@link #ALLOW_ENCODED_SLASH} is ignored. Should default to <b>true</b>
+     * <p>
+     * See <a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-0450">CVE-2007-0450</a>
+     */
+    public static final Option<Boolean> DECODE_SLASH = Option.simple(UndertowOptions.class, "DECODE_SLASH", Boolean.class);
 
     /**
      * If this is true then the parser will decode the URL and query parameters using the selected character encoding (UTF-8 by default). If this is false they will
@@ -170,10 +185,13 @@ public class UndertowOptions {
      * Requests are not usually buffered, the most common case is when performing SSL renegotiation for a POST request, and the post data must be fully
      * buffered in order to perform the renegotiation.
      * <p>
-     * Defaults to 16384.
+     * Defaults to 16384. <br>UNIT: Bytes.
      */
     public static final Option<Integer> MAX_BUFFERED_REQUEST_SIZE = Option.simple(UndertowOptions.class, "MAX_BUFFERED_REQUEST_SIZE", Integer.class);
 
+    /**
+     * Default value of request buffer. <br>UNIT: Bytes.
+     */
     public static final int DEFAULT_MAX_BUFFERED_REQUEST_SIZE = 16384;
 
     /**
@@ -260,11 +278,21 @@ public class UndertowOptions {
     public static final Option<Boolean> HTTP2_SETTINGS_ENABLE_PUSH = Option.simple(UndertowOptions.class, "HTTP2_SETTINGS_ENABLE_PUSH", Boolean.class);
 
     /**
-     * The maximum number of concurrent
+     * The maximum number of concurrent http2 streams.
      */
     public static final Option<Integer> HTTP2_SETTINGS_MAX_CONCURRENT_STREAMS = Option.simple(UndertowOptions.class, "HTTP2_SETTINGS_MAX_CONCURRENT_STREAMS", Integer.class);
 
+    public static final int DEFAULT_HTTP2_SETTINGS_MAX_CONCURRENT_STREAMS = -1;
+
+    /**
+     * Size of initial HTTP2 window.
+     *  <br>UNIT: Bytes.
+     */
     public static final Option<Integer> HTTP2_SETTINGS_INITIAL_WINDOW_SIZE = Option.simple(UndertowOptions.class, "HTTP2_SETTINGS_INITIAL_WINDOW_SIZE", Integer.class);
+    /**
+     * Max frame size for HTTP2.
+     *  <br>UNIT: Bytes.
+     */
     public static final Option<Integer> HTTP2_SETTINGS_MAX_FRAME_SIZE = Option.simple(UndertowOptions.class, "HTTP2_SETTINGS_MAX_FRAME_SIZE", Integer.class);
 
     /**
@@ -276,7 +304,7 @@ public class UndertowOptions {
     public static final Option<Integer> HTTP2_SETTINGS_MAX_HEADER_LIST_SIZE = Option.simple(UndertowOptions.class, "HTTP2_SETTINGS_MAX_HEADER_LIST_SIZE", Integer.class);
 
     /**
-     * The maximum amount of padding to send in a HTTP/2 frame. Actual amount will be randomly determined, defaults to Zero.
+     * The maximum amount of padding to send in a HTTP/2 frame. Actual amount will be randomly determined, defaults to Zero. <br>UNIT: Bytes.
      */
     public static final Option<Integer> HTTP2_PADDING_SIZE = Option.simple(UndertowOptions.class, "HTTP2_PADDING_SIZE", Integer.class);
 
@@ -306,7 +334,7 @@ public class UndertowOptions {
     public static final Option<Integer> MAX_QUEUED_READ_BUFFERS = Option.simple(UndertowOptions.class, "MAX_QUEUED_READ_BUFFERS", Integer.class);
 
     /**
-     * The maximum AJP packet size, default is 8192
+     * The maximum AJP packet size, default is 8192.<br>UNIT: Bytes.
      */
     public static final Option<Integer> MAX_AJP_PACKET_SIZE = Option.simple(UndertowOptions.class, "MAX_AJP_PACKET_SIZE", Integer.class);
 
@@ -315,18 +343,27 @@ public class UndertowOptions {
      */
     public static final Option<Boolean> REQUIRE_HOST_HTTP11 = Option.simple(UndertowOptions.class, "REQUIRE_HOST_HTTP11", Boolean.class);
 
+    @Deprecated
     public static final int DEFAULT_MAX_CACHED_HEADER_SIZE = 150;
 
     /**
      * The maximum size of a header name+value combo that is cached in the per connection cache. Defaults to 150
      */
+    @Deprecated
     public static final Option<Integer> MAX_CACHED_HEADER_SIZE = Option.simple(UndertowOptions.class, "MAX_CACHED_HEADER_SIZE", Integer.class);
 
+    /**
+     * Default value of {@link #HTTP_HEADERS_CACHE_SIZE} option.
+     */
+    @Deprecated
     public static final int DEFAULT_HTTP_HEADERS_CACHE_SIZE = 15;
 
     /**
-     * The maximum number of headers that are cached per connection. Defaults to 15. If this is set to zero the cache is disabled.
+     * The maximum number of headers that are cached per connection. If this is set to zero the cache is disabled.
+     * <p>
+     * Defaults to {@link #DEFAULT_HTTP_HEADERS_CACHE_SIZE}
      */
+    @Deprecated
     public static final Option<Integer> HTTP_HEADERS_CACHE_SIZE = Option.simple(UndertowOptions.class, "HTTP_HEADERS_CACHE_SIZE", Integer.class);
 
     /**
@@ -334,6 +371,13 @@ public class UndertowOptions {
      */
     public static final Option<Boolean> SSL_USER_CIPHER_SUITES_ORDER = Option.simple(UndertowOptions.class, "SSL_USER_CIPHER_SUITES_ORDER", Boolean.class);
 
+    /**
+     * This option forces {@link io.undertow.protocols.ssl.UndertowXnioSsl} to use a specific
+     * name as the {@link javax.net.ssl.SNIHostName} for a client connection. If the option is
+     * not set, the URL hostname is used when available (for URLs that do not use the IP address).
+     * The option can be useful when connecting via IP but want to set a SNI hostname value.
+     */
+    public static final Option<String> SSL_SNI_HOSTNAME = Option.simple(UndertowOptions.class, "SSL_SNI_HOSTNAME", String.class);
 
     public static final Option<Boolean> ALLOW_UNESCAPED_CHARACTERS_IN_URL = Option.simple(UndertowOptions.class,"ALLOW_UNESCAPED_CHARACTERS_IN_URL", Boolean.class);
 
@@ -341,7 +385,7 @@ public class UndertowOptions {
      * The server shutdown timeout in milliseconds after which the executor will be forcefully shut down interrupting
      * tasks which are still executing.
      *
-     * There is no timeout by default.
+     * There is no timeout by default.<br>UNIT: Milliseconds.
      */
     public static final Option<Integer> SHUTDOWN_TIMEOUT = Option.simple(UndertowOptions.class, "SHUTDOWN_TIMEOUT", Integer.class);
 
@@ -378,7 +422,7 @@ public class UndertowOptions {
 
 
     /**
-     * Default value of {@link #RST_FRAMES_TIME_WINDOW} option.
+     * Default value of {@link #RST_FRAMES_TIME_WINDOW} option. <br>UNIT: Milliseconds.
      */
     public static final int DEFAULT_RST_FRAMES_TIME_WINDOW = 30000;
     /**
@@ -389,7 +433,7 @@ public class UndertowOptions {
     /**
      * Window of time per which the number of HTTP2 RST received frames is measured, in milliseconds.
      * If a number of RST frames bigger than {@link #MAX_RST_FRAMES_PER_WINDOW} is received during this time window,
-     * the server will send a GO_AWAY frame with error code 11 ({@code ENHANCE_YOUR_CALM}) and it will close the connection.
+     * the server will send a GO_AWAY frame with error code 11 ({@code ENHANCE_YOUR_CALM}) and it will close the connection.<br>UNIT: Milliseconds.
      */
     public static final Option<Integer> RST_FRAMES_TIME_WINDOW = Option.simple(UndertowOptions.class, "MAX_RST_STREAM_TIME_WINDOW", Integer.class);
 

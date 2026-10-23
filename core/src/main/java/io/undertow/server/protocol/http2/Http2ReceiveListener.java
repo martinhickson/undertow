@@ -42,7 +42,7 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.protocol.http.HttpAttachments;
 import io.undertow.server.protocol.http.HttpContinue;
-import io.undertow.server.protocol.http.HttpRequestParser;
+import io.undertow.util.BadRequestException;
 import io.undertow.util.ConduitFactory;
 import io.undertow.util.HeaderMap;
 import io.undertow.util.HeaderValues;
@@ -62,6 +62,7 @@ import static io.undertow.protocols.http2.Http2Channel.AUTHORITY;
 import static io.undertow.protocols.http2.Http2Channel.METHOD;
 import static io.undertow.protocols.http2.Http2Channel.PATH;
 import static io.undertow.protocols.http2.Http2Channel.SCHEME;
+import static io.undertow.util.ParserUtils.isRequestTargetChar;
 
 /**
  * The recieve listener for a Http2 connection.
@@ -191,7 +192,7 @@ public class Http2ReceiveListener implements ChannelListener<Http2Channel> {
 
         try {
             Connectors.setExchangeRequestPath(exchange, path, encoding, decode, allowEncodingSlash, decodeBuffer, maxParameters);
-        } catch (ParameterLimitException e) {
+        } catch (ParameterLimitException | BadRequestException e) {
             //this can happen if max parameters is exceeded
             UndertowLogger.REQUEST_IO_LOGGER.debug("Failed to set request path", e);
             exchange.setStatusCode(StatusCodes.BAD_REQUEST);
@@ -242,7 +243,7 @@ public class Http2ReceiveListener implements ChannelListener<Http2Channel> {
         String uri = exchange.getQueryString().isEmpty() ? initial.getRequestURI() : initial.getRequestURI() + '?' + exchange.getQueryString();
         try {
             Connectors.setExchangeRequestPath(exchange, uri, encoding, decode, allowEncodingSlash, decodeBuffer, maxParameters);
-        } catch (ParameterLimitException e) {
+        } catch (ParameterLimitException | BadRequestException e) {
             exchange.setStatusCode(StatusCodes.BAD_REQUEST);
             exchange.endExchange();
             return;
@@ -322,7 +323,7 @@ public class Http2ReceiveListener implements ChannelListener<Http2Channel> {
         // verify content of request pseudo-headers. Each header should only have a single value.
         if (headers.contains(PATH)) {
             for (byte b: headers.get(PATH).getFirst().getBytes(ISO_8859_1)) {
-                if (!allowUnescapedCharactersInUrl && !HttpRequestParser.isTargetCharacterAllowed((char)b)){
+                if (!allowUnescapedCharactersInUrl && !isRequestTargetChar(b)){
                     return false;
                 }
             }
@@ -338,7 +339,7 @@ public class Http2ReceiveListener implements ChannelListener<Http2Channel> {
 
         if (headers.contains(AUTHORITY)) {
             for (byte b: headers.get(AUTHORITY).getFirst().getBytes(ISO_8859_1)) {
-                if (!HttpRequestParser.isTargetCharacterAllowed((char)b)){
+                if (!isRequestTargetChar(b)){
                     return false;
                 }
             }
