@@ -155,10 +155,17 @@ public class ServletPrintWriter {
                 underflow = null;
             }
             int last = -1;
-            while (cb.hasRemaining()) {
-                int remaining = buffer.remaining();
-                CoderResult result = charsetEncoder.encode(cb, buffer, false);
-                outputStream.updateWritten(remaining - buffer.remaining());
+            long remainingContentLength = outputStream.remainingContentLength();
+            while (remainingContentLength > 0 && cb.hasRemaining()) {
+                final int remaining = buffer.remaining();
+                final CoderResult result = charsetEncoder.encode(cb, buffer, false);
+                long writtenLength = remaining - buffer.remaining();
+                if (remainingContentLength < writtenLength) {
+                    buffer.position(buffer.position() - (int) (writtenLength - remainingContentLength));
+                    writtenLength = remainingContentLength;
+                }
+                remainingContentLength -= writtenLength;
+                outputStream.updateWritten(writtenLength);
                 if (result.isOverflow() || !buffer.hasRemaining()) {
                     outputStream.flushInternal();
                     if (!buffer.hasRemaining()) {
@@ -213,8 +220,14 @@ public class ServletPrintWriter {
                 int end = off + len;
                 int i = off;
                 int flushPos = i + remaining;
-                while (ok && i < end) {
+                long remainingContentLength = outputStream.remainingContentLength();
+                int written = 0;
+                while (ok && i < end && remainingContentLength > 0) {
                     int realEnd = Math.min(end, flushPos);
+                    if (remainingContentLength < (realEnd - i)) {
+                        realEnd = i + (int) remainingContentLength;
+                    }
+                    int chunkStart = i;
                     for (; i < realEnd; ++i) {
                         char c = buf[i];
                         if (c > 127) {
@@ -224,12 +237,15 @@ public class ServletPrintWriter {
                             buffer.put((byte) c);
                         }
                     }
+                    int chunk = i - chunkStart;
+                    remainingContentLength -= chunk;
+                    written += chunk;
                     if (i == flushPos) {
                         outputStream.flushInternal();
                         flushPos = i + buffer.remaining();
                     }
                 }
-                outputStream.updateWritten(remaining - buffer.remaining());
+                outputStream.updateWritten(written);
                 if (ok) {
                     return;
                 }
@@ -267,7 +283,9 @@ public class ServletPrintWriter {
                 int end = off + len;
                 int i = off;
                 int fpos = i + remaining;
-                for (; i < end; ++i) {
+                long remainingContentLength = outputStream.remainingContentLength();
+                int written = 0;
+                while (ok && i < end && remainingContentLength > 0) {
                     if (i == fpos) {
                         outputStream.flushInternal();
                         fpos = i + buffer.remaining();
@@ -278,8 +296,11 @@ public class ServletPrintWriter {
                         break;
                     }
                     buffer.put((byte) c);
+                    i++;
+                    written++;
+                    remainingContentLength--;
                 }
-                outputStream.updateWritten(remaining - buffer.remaining());
+                outputStream.updateWritten(written);
                 if (ok) {
                     return;
                 }
