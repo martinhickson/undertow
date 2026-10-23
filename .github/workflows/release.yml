@@ -229,7 +229,9 @@ jobs:
               </server>" ~/.m2/settings.xml
           fi
           echo "${MAVEN_CENTRAL_GPG_PRIVATE_KEY}" | gpg --batch --import --pinentry-mode loopback
+          # examples and benchmarks stay out of Central (file count, and they inherit other components' findings)
           mvn deploy -Pcentral-release -DskipTests \
+            -pl '!:undertow-examples,!:undertow-benchmarks,!:undertow-examples-jakarta' \
             -Dmaven.javadoc.failOnError=false \
             -Dgpg.passphrase="${MAVEN_CENTRAL_GPG_PASSPHRASE}"
           find /tmp/pom-backup -name pom.xml -print0 |
@@ -318,5 +320,7 @@ jobs:
           # Deploy to GitHub Packages using altDeploymentRepository
           REPO_URL="https://maven.pkg.github.com/${{ github.repository }}"
           echo "Deploying artifacts to GitHub Packages at $REPO_URL"
-          mvn deploy -DskipTests -DaltDeploymentRepository=github::default::$REPO_URL
+          mvn deploy -DskipTests \
+            -pl '!:undertow-examples,!:undertow-benchmarks,!:undertow-examples-jakarta' \
+            -DaltDeploymentRepository=github::default::$REPO_URL
 
