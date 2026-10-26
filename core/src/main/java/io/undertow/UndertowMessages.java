@@ -19,6 +19,7 @@
 package io.undertow;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 
@@ -26,6 +27,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
+import io.undertow.server.HttpServerExchange;
 import io.undertow.server.RequestTooBigException;
 import io.undertow.server.handlers.form.MultiPartParserDefinition;
 import io.undertow.util.UrlDecodeException;
@@ -650,4 +652,26 @@ public interface UndertowMessages {
     @Message(id = 209, value = "Protocol string was too large for the buffer. Either provide a smaller message or a bigger buffer. Protocol: %s")
     IllegalStateException protocolTooLargeForBuffer(String protocolString);
 
+    @Message(id = 210, value = "Buffer content underflow for exchange '%s', buffer '%s'")
+    IOException bufferUnderflow(HttpServerExchange exchange, ByteBuffer buf);
+
+    // 211 placeholder
+
+    @Message(id = 212, value = "Failed to encode query string '%s' with '%s' encoding.")
+    IllegalArgumentException failedToEncodeQueryString(String q, String e);
+
+    // 213 placeholder
+
+    // 214 placeholder
+
+    // 215 placeholder
+
+    // 216 placeholder
+
+    // 217 placeholder
+
+    // 218 placeholder
+
+    @Message(id = 219, value = "Too many path parameters, cannot have more than %s path parameters")
+    BadRequestException tooManyPathParameters(int noParams);
 }

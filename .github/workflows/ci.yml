@@ -77,6 +77,23 @@ jobs:
         echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' >	%SystemRoot%\System32\drivers\etc\hosts
         echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> %SystemRoot%\System32\drivers\etc\hosts
       shell: cmd
+    - name: Add loopback aliases - macos
+      if: matrix.os == 'macos-latest'
+      run: |
+        for address in 127.0.0.2 127.0.0.3 127.0.0.4; do
+          sudo ifconfig lo0 alias "$address" netmask 255.0.0.0
+        done
+    - name: Add loopback aliases - windows
+      if: matrix.os == 'windows-latest'
+      shell: powershell
+      run: |
+        $index = (Get-NetIPAddress -IPAddress 127.0.0.1 -AddressFamily IPv4 | Select-Object -First 1).InterfaceIndex
+        foreach ($address in '127.0.0.2','127.0.0.3','127.0.0.4') {
+          $existing = Get-NetIPAddress -IPAddress $address -ErrorAction SilentlyContinue
+          if (-not $existing) {
+            netsh interface ipv4 add address $index $address 255.0.0.0
+          }
+        }
     - uses: n1hility/cancel-previous-runs@v2
       with:
           token: ${{ secrets.GITHUB_TOKEN }}

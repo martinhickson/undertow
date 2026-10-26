@@ -340,18 +340,25 @@ public class UndertowOptions {
      */
     public static final Option<Boolean> REQUIRE_HOST_HTTP11 = Option.simple(UndertowOptions.class, "REQUIRE_HOST_HTTP11", Boolean.class);
 
+    @Deprecated(forRemoval = true)
     public static final int DEFAULT_MAX_CACHED_HEADER_SIZE = 150;
 
     /**
      * The maximum size of a header name+value combo that is cached in the per connection cache. Defaults to 150
      */
+    @Deprecated(forRemoval = true)
     public static final Option<Integer> MAX_CACHED_HEADER_SIZE = Option.simple(UndertowOptions.class, "MAX_CACHED_HEADER_SIZE", Integer.class);
 
+    /**
+     * Default value of {@link #HTTP_HEADERS_CACHE_SIZE} option.
+     */
+    @Deprecated(forRemoval = true)
     public static final int DEFAULT_HTTP_HEADERS_CACHE_SIZE = 15;
 
     /**
      * The maximum number of headers that are cached per connection. Defaults to 15. If this is set to zero the cache is disabled.
      */
+    @Deprecated(forRemoval = true)
     public static final Option<Integer> HTTP_HEADERS_CACHE_SIZE = Option.simple(UndertowOptions.class, "HTTP_HEADERS_CACHE_SIZE", Integer.class);
 
     /**

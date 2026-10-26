@@ -12,7 +12,6 @@ import org.junit.After;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +20,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class ProxyPathHandlingTest {
+    private static final String TARGET_ADDRESS = "127.0.0.2";
+    private static final String PROXY_ADDRESS = "127.0.0.3";
+    private static final int PORT = 7791;
     private final TargetServer targetServer = new TargetServer();
     private final ProxyServer proxyServer = new ProxyServer(targetServer.uri);
 
@@ -169,16 +171,15 @@ public class ProxyPathHandlingTest {
     }
 
     private static class ProxyServer {
-        private final int port = FreePort.find();
         private final Undertow server;
         private final PathHandler pathHandler = Handlers.path();
-        final String uri = "http://localhost:" + port;
+        final String uri = "http://" + PROXY_ADDRESS + ":" + PORT;
         private final String targetUri;
 
         ProxyServer(String targetUri) {
             this.targetUri = targetUri;
             server = Undertow.builder()
-                    .addHttpListener(port, "0.0.0.0")
+                    .addHttpListener(PORT, PROXY_ADDRESS)
                     .setHandler(pathHandler)
                     .build();
             server.start();
@@ -203,15 +204,14 @@ public class ProxyPathHandlingTest {
     }
 
     private static class TargetServer {
-        private final int port = FreePort.find();
         private final Undertow server;
-        final String uri = "http://localhost:" + port;
+        final String uri = "http://" + TARGET_ADDRESS + ":" + PORT;
 
         private final LinkedBlockingQueue<String> gotRequestQueue = new LinkedBlockingQueue<>();
 
         TargetServer() {
             server = Undertow.builder()
-                    .addHttpListener(port, "0.0.0.0")
+                    .addHttpListener(PORT, TARGET_ADDRESS)
                     .setHandler(new HttpHandler() {
                         @Override
                         public void handleRequest(HttpServerExchange exchange) throws Exception {
@@ -234,27 +234,6 @@ public class ProxyPathHandlingTest {
                 throw new RuntimeException(e);
             }
             return url;
-        }
-    }
-
-    private static class FreePort {
-        static int find() {
-            int port = 0;
-            while (port == 0) {
-                ServerSocket socket = null;
-                try {
-                    socket = new ServerSocket(0);
-                    port = socket.getLocalPort();
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed finding free port", e);
-                } finally {
-                    try {
-                        if (socket != null) socket.close();
-                    } catch (IOException ignore) {
-                    }
-                }
-            }
-            return port;
         }
     }
 }
