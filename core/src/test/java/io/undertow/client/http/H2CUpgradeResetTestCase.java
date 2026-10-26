@@ -70,7 +70,7 @@ public class H2CUpgradeResetTestCase {
 
     private static final String ECHO_PATH = "/echo";
     private static final AttachmentKey<String> RESPONSE_BODY = AttachmentKey.create(String.class);
-    /** Avoids the default SSL listener on {@code getHostPort() + 1}. */
+    private static final String ADDRESS = "127.0.0.4";
     private static final int PORT = DefaultServer.getHostPort() + 15;
 
     private static XnioWorker worker;
@@ -113,7 +113,7 @@ public class H2CUpgradeResetTestCase {
                 });
 
         server = Undertow.builder()
-                .addHttpListener(PORT, DefaultServer.getHostAddress(), new Http2UpgradeHandler(path))
+                .addHttpListener(PORT, ADDRESS, new Http2UpgradeHandler(path))
                 .setSocketOption(Options.REUSE_ADDRESSES, true)
                 .build();
         server.start();
@@ -164,7 +164,7 @@ public class H2CUpgradeResetTestCase {
                 final ClientRequest request = new ClientRequest()
                         .setMethod(Methods.POST)
                         .setPath(ECHO_PATH);
-                request.getRequestHeaders().put(Headers.HOST, DefaultServer.getHostAddress());
+                request.getRequestHeaders().put(Headers.HOST, ADDRESS);
                 request.getRequestHeaders().put(Headers.CONTENT_LENGTH, contentLength);
                 connection.sendRequest(request, createClientCallback(responses, latch, content, reset));
             }
@@ -187,7 +187,7 @@ public class H2CUpgradeResetTestCase {
 
         // the client connection uses the small byte-buffer of 1024 to force the continuation frames
         final ClientConnection connection = client.connect(
-                new URI("http://" + DefaultServer.getHostAddress() + ":" + PORT),
+                new URI("http://" + ADDRESS + ":" + PORT),
                 worker, new UndertowXnioSsl(worker.getXnio(), OptionMap.EMPTY, DefaultServer.getClientSSLContext()),
                 DefaultServer.getBufferPool(), OptionMap.create(UndertowOptions.ENABLE_HTTP2, true)).get();
         try {
