@@ -19,6 +19,7 @@ package io.undertow.server.handlers;
 
 import java.util.regex.Pattern;
 
+import io.undertow.UndertowOptions;
 import io.undertow.server.HandlerWrapper;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
@@ -118,16 +119,10 @@ public class HostHeaderHandler implements HttpHandler {
         final HeaderValues headerValues = headerMap.get(Headers.HOST);
         final HttpString protocol = exchange.getProtocol();
 
-        if((protocol.equals(Protocols.HTTP_0_9) || protocol.equals(Protocols.HTTP_1_0))){
-            if (headerValues == null) {
-                //TODO: should we fake Host till we make it?
-                next.handleRequest(exchange);
-                return;
-            }
-            //else {
-                //clients want to be good citizens and send it anyway.
-                //fall through to below, first check will be false, but rest is the same as for HTTP1.1+
-            //}
+        if ((protocol.equals(Protocols.HTTP_0_9) || protocol.equals(Protocols.HTTP_1_0)) && headerValues == null
+                && exchange.getConnection().getUndertowOptions().get(UndertowOptions.ALLOW_MISSING_HOST_FOR_LEGACY_HTTP_VERSIONS, false)) {
+            next.handleRequest(exchange);
+            return;
         }
 
         if (headerValues == null || headerValues.size() == 0) {

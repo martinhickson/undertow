@@ -66,12 +66,12 @@ public class ProxyProtocolTestCase {
     @Test
     public void testProxyProtocolTcp4() throws Exception {
         // simple valid request
-        String request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        String request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         String expectedResponse = "result: /1.2.3.4:444 /5.6.7.8:555";
         proxyProtocolRequestResponseCheck(request, expectedResponse);
 
         // check port range
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 0 65535\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 0 65535\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         expectedResponse = "result: /1.2.3.4:0 /5.6.7.8:65535";
         proxyProtocolRequestResponseCheck(request, expectedResponse);
     }
@@ -79,79 +79,79 @@ public class ProxyProtocolTestCase {
     @Test
     public void testProxyProtocolTcp4Negative() throws Exception {
         // wrong number of spaces in requests
-        String request = "PROXY  TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        String request = "PROXY  TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4  1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4  1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4  5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4  5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8  444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8  444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444  555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444  555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing destination port
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing destination address
-        request = "PROXY TCP4 1.2.3.4 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing \n on the first line of the request
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\rGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\rGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing \r on the first line of the request
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src address contains 0 characters at the beginning
-        request = "PROXY TCP4 001.002.003.004 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 001.002.003.004 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // dst address contains '0' characters at the beginning
-        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src/dst ports out of range
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 111444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 111444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 111555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 111555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 005.006.007.008 -444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 005.006.007.008 -444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 -555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 005.006.007.008 444 -555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src/dst ports contains '0' characters at the beginning
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 0444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 0444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 0555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 0555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src address contains invalid characters
-        request = "PROXY TCP4 277.2.3.4 5.6.7.8 444 555\r\nGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 277.2.3.4 5.6.7.8 444 555\r\nGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // dst address contains invalid characters
-        request = "PROXY TCP4 1.2.3.4 5d.6.7.8 444 555\r\nGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 1.2.3.4 5d.6.7.8 444 555\r\nGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // unallowed character after PROXY string
-        request = "PROXY, TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY, TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // IPv6 address when TCP4 is used
-        request = "PROXY TCP4 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP4 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
     }
 
@@ -159,12 +159,12 @@ public class ProxyProtocolTestCase {
     public void testProxyProtocolTcp6() throws Exception {
         // simple valid request
         String request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         String expectedResponse = "result: /fe80:0:0:0:56ee:75ff:fe44:85bc:444 /fe80:0:0:0:5ec5:d4ff:fede:66d8:555";
         proxyProtocolRequestResponseCheck(request, expectedResponse);
 
         // check port range
-        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 0 65535\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 0 65535\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         expectedResponse = "result: /fe80:0:0:0:56ee:75ff:fe44:85bc:0 /fe80:0:0:0:5ec5:d4ff:fede:66d8:65535";
         proxyProtocolRequestResponseCheck(request, expectedResponse);
     }
@@ -173,84 +173,84 @@ public class ProxyProtocolTestCase {
     public void testProxyProtocolTcp6Negative() throws Exception {
         // wrong number of spaces in requests
         String request = "PROXY  TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6  fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc  fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8  444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444  555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing destination port
-        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444\r\nGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444\r\nGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing destination address
-        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc 444 555\r\nGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc 444 555\r\nGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing \n on the first line of the request
-        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\rGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\rGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // missing \r on the first line of the request
-        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\nGET / " + "HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\nGET / " + "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src address contains invalid characters
         request = "PROXY TCP6 fz80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // dst address contains invalid characters
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5zc5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src/dst ports out of range
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 111444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 111555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 -444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 -555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // src/dst ports contains '0' characters at the beginning
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 0444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 0555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // unallowed character after PROXY string
         request = "PROXY, TCP6 fe80::56ee:75ff:fe44:85bc fe80::5ec5:d4ff:fede:66d8 444 555\r\nGET / " +
-                "HTTP/1.0\r\n\r\n";
+                "HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         // IPv6 address when TCP4 is used
-        request = "PROXY TCP6 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY TCP6 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
     }
 
@@ -264,22 +264,22 @@ public class ProxyProtocolTestCase {
         String request = "NONSENSE\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "NONSENSE TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "NONSENSE TCP4 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "NONSENSE\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "NONSENSE\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
         request = "PROXY NONSENSE\r\n";
         proxyProtocolRequestResponseCheck(request, "");
 
-        request = "PROXY NONSENSE 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\n\r\n";
+        request = "PROXY NONSENSE 1.2.3.4 5.6.7.8 444 555\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, "");
     }
 
@@ -318,13 +318,13 @@ public class ProxyProtocolTestCase {
     @Test
     public void testProxyProtocolSSl() throws Exception {
         String request = "PROXY TCP4 1.2.3.4 5.6.7.8 444 555\r\n";
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         String expectedResponse = "result: /1.2.3.4:444 /5.6.7.8:555";
         proxyProtocolRequestResponseCheck(request, requestHttp, expectedResponse);
 
         // negative test
         request = "PROXY TCP4  1.2.3.4 5.6.7.8 444 555\r\n";
-        requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         proxyProtocolRequestResponseCheck(request, requestHttp, "");
     }
 
@@ -333,7 +333,7 @@ public class ProxyProtocolTestCase {
         // simple valid request
         byte[] header = createProxyHeaderV2(PROXY, TCPv4, 12, InetAddress.getByName("1.2.3.4"), InetAddress.getByName("5.6.7.8"),444,555);
 
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         String expectedResponse = "result: /1.2.3.4:444 /5.6.7.8:555";
 
         proxyProtocolRequestResponseCheck(header, requestHttp, expectedResponse);
@@ -363,7 +363,7 @@ public class ProxyProtocolTestCase {
         // simple valid request
         byte[] header = createProxyHeaderV2(PROXY, TCPv4, 12, InetAddress.getByName("1.2.3.4"), InetAddress.getByName("5.6.7.8"),444,555);
 
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         String expectedResponse = "result: /1.2.3.4:444 /5.6.7.8:555";
 
 
@@ -374,7 +374,7 @@ public class ProxyProtocolTestCase {
 
     @Test
     public void testProxyProtocolV2Tcp4Negative() throws Exception {
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         byte[] request;
 
         // missing destination port
@@ -396,7 +396,7 @@ public class ProxyProtocolTestCase {
 
     @Test
     public void testProxyProtocolV2Tcp6() throws Exception {
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         byte[] request;
 
         // simple valid request
@@ -412,7 +412,7 @@ public class ProxyProtocolTestCase {
 
     @Test
     public void testProxyProtocolV2Tcp6Negative() throws Exception {
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         byte[] request;
 
         // missing destination port
@@ -434,7 +434,7 @@ public class ProxyProtocolTestCase {
 
     @Test
     public void testProxyProtocolV2Local() throws Exception {
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         byte[] request;
 
         // simple valid request
@@ -455,7 +455,7 @@ public class ProxyProtocolTestCase {
      */
     @Test
     public void testProxyProtocolV2Negative() throws Exception {
-        String requestHttp = "GET / HTTP/1.0\r\n\r\n";
+        String requestHttp = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
         byte[] request;
 
         // wrong version
@@ -581,7 +581,7 @@ public class ProxyProtocolTestCase {
             Socket s = new Socket(serverAddress.getAddress(), serverAddress.getPort());
             String expected = String.format("result: /%s:%d /%s:%d", s.getLocalAddress().getHostAddress(), s
                     .getLocalPort(), serverAddress.getAddress().getHostAddress(), serverAddress.getPort());
-            s.getOutputStream().write(("PROXY UNKNOWN" + extra + "\r\nGET / HTTP/1.0\r\n\r\n").getBytes
+            s.getOutputStream().write(("PROXY UNKNOWN" + extra + "\r\nGET / HTTP/1.0\r\nHost: localhost\r\n\r\n").getBytes
                     (StandardCharsets.US_ASCII));
             String result = FileUtils.readFile(s.getInputStream());
             Assert.assertTrue(result, result.contains(expected));
