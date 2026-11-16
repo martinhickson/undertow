@@ -18,6 +18,8 @@
 package io.undertow.server.handlers;
 
 import java.io.IOException;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -30,11 +32,14 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.xnio.OptionMap;
 
 import io.undertow.Handlers;
+import io.undertow.UndertowOptions;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.testutils.DefaultServer;
+import io.undertow.testutils.HttpOneOnly;
 import io.undertow.testutils.ProxyIgnore;
 import io.undertow.testutils.TestHttpClient;
 import io.undertow.util.Headers;
@@ -230,6 +235,50 @@ public class HostHandlerTestCase {
         // test userinfo presence?
         test(new String[] { "" },
                 null, 200, null);
+    }
+
+    @Test
+    @HttpOneOnly
+    public void testLegacyHttpWithoutHostIsRejected() throws Exception {
+        assertRawStatus("GET / HTTP/1.0\r\n\r\n", 400, HostHeaderHandler.STATUS_NO_HOST_HEADER);
+        assertRawStatus("GET / HTTP/0.9\r\n\r\n", 400, HostHeaderHandler.STATUS_NO_HOST_HEADER);
+    }
+
+    @Test
+    @HttpOneOnly
+    public void testLegacyHttpWithHostIsAccepted() throws Exception {
+        assertRawStatus("GET / HTTP/1.0\r\nHost: localhost\r\n\r\n", 200, null);
+        assertRawStatus("GET / HTTP/0.9\r\nHost: localhost\r\n\r\n", 200, null);
+    }
+
+    @Test
+    @HttpOneOnly
+    public void testAllowMissingHostForLegacyVersions() throws Exception {
+        final OptionMap existing = DefaultServer.getUndertowOptions();
+        DefaultServer.setUndertowOptions(OptionMap.builder().addAll(existing).set(UndertowOptions.ALLOW_MISSING_HOST_FOR_LEGACY_HTTP_VERSIONS, true).getMap());
+        try {
+            assertRawStatus("GET / HTTP/1.0\r\n\r\n", 200, null);
+            assertRawStatus("GET / HTTP/0.9\r\n\r\n", 200, null);
+        } finally {
+            DefaultServer.setUndertowOptions(existing);
+        }
+    }
+
+    private static void assertRawStatus(final String request, final int status, final String reason) throws IOException {
+        try (Socket socket = new Socket(DefaultServer.getHostAddress(), DefaultServer.getHostPort())) {
+            socket.setSoTimeout(5000);
+            socket.getOutputStream().write(request.getBytes(StandardCharsets.UTF_8));
+            socket.shutdownOutput();
+            final byte[] buf = new byte[1024];
+            final int n = socket.getInputStream().read(buf);
+            Assert.assertTrue(n > 0);
+            final String response = new String(buf, 0, n, StandardCharsets.UTF_8);
+            final String statusLine = response.substring(0, response.indexOf('\r'));
+            Assert.assertTrue(statusLine, statusLine.contains(" " + status + " "));
+            if (reason != null) {
+                Assert.assertTrue(statusLine, statusLine.endsWith(reason));
+            }
+        }
     }
 
     @Test

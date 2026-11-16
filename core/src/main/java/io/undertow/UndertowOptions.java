@@ -340,6 +340,15 @@ public class UndertowOptions {
      */
     public static final Option<Boolean> REQUIRE_HOST_HTTP11 = Option.simple(UndertowOptions.class, "REQUIRE_HOST_HTTP11", Boolean.class);
 
+    /**
+     * When {@code false}, an HTTP/0.9 or HTTP/1.0 request with no Host header is rejected with
+     * 400. That stops the socket address being used in place of the missing header.
+     * Set this to {@code true} to accept those requests.
+     * <p>
+     * Defaults to {@code false}.
+     */
+    public static final Option<Boolean> ALLOW_MISSING_HOST_FOR_LEGACY_HTTP_VERSIONS = Option.simple(UndertowOptions.class, "ALLOW_MISSING_HOST_FOR_LEGACY_HTTP_VERSIONS", Boolean.class);
+
     @Deprecated(forRemoval = true)
     public static final int DEFAULT_MAX_CACHED_HEADER_SIZE = 150;
 

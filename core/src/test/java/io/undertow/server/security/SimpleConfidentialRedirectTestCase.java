@@ -120,7 +120,8 @@ public class SimpleConfidentialRedirectTestCase {
         //now we need to test what happens if the client send a full URI
         //see UNDERTOW-874
         try (Socket socket = new Socket(DefaultServer.getHostAddress(), DefaultServer.getHostPort())) {
-            socket.getOutputStream().write(("GET " + DefaultServer.getDefaultServerURL() + "/foo HTTP/1.0\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            socket.getOutputStream().write(("GET " + DefaultServer.getDefaultServerURL() + "/foo HTTP/1.0\r\nHost: "
+                    + DefaultServer.getHostAddress() + ":" + DefaultServer.getHostPort() + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
             String result = FileUtils.readFile(socket.getInputStream());
             Assert.assertTrue(result.contains("Location: " + DefaultServer.getDefaultServerSSLAddress() + "/foo"));
         }
